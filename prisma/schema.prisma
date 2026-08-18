@@ -1,0 +1,67 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Priority {
+  Low
+  Medium
+  High
+}
+
+enum Status {
+  New
+  InProgress
+  Blocked
+  Done
+}
+
+model User {
+  id           String      @id @default(cuid())
+  name         String
+  email        String      @unique
+  passwordHash String
+  createdAt    DateTime    @default(now())
+  requesters   Requester[]
+  tasks        Task[]
+}
+
+model Requester {
+  id         String   @id @default(cuid())
+  name       String
+  team       String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  owner      User     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  ownerUserId String
+  tasks      Task[]
+
+  @@index([ownerUserId])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  priority    Priority  @default(Medium)
+  status      Status    @default(New)
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  requester   Requester @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  requesterId String
+
+  owner       User      @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  ownerUserId String
+
+  @@index([ownerUserId])
+  @@index([requesterId])
+}
