@@ -25,8 +25,8 @@ type Task = {
   priority: PriorityValue;
   status: StatusValue;
   dueDate: string | null;
-  requesterId: string;
-  requester: Requester;
+  requesterId: string | null;
+  requester: Requester | null;
 };
 
 const COLUMN_STYLES: Record<StatusValue, string> = {
@@ -73,12 +73,7 @@ export default function BoardClient({
   }, []);
 
   function openNew() {
-    if (requesters.length === 0) {
-      alert("Add a requester first, then create tasks for them.");
-      router.push("/requesters");
-      return;
-    }
-    setForm({ ...emptyForm, requesterId: requesters[0].id });
+    setForm(emptyForm);
     setModalTask("new");
   }
 
@@ -86,7 +81,7 @@ export default function BoardClient({
     setForm({
       title: t.title,
       description: t.description ?? "",
-      requesterId: t.requesterId,
+      requesterId: t.requesterId ?? "",
       priority: t.priority,
       status: t.status,
       dueDate: t.dueDate ? t.dueDate.slice(0, 10) : "",
@@ -95,13 +90,13 @@ export default function BoardClient({
   }
 
   async function handleSave() {
-    if (!form.title.trim() || !form.requesterId) return;
+    if (!form.title.trim()) return;
     setSaving(true);
 
     const payload = {
       title: form.title,
       description: form.description,
-      requesterId: form.requesterId,
+      requesterId: form.requesterId || null,
       priority: form.priority,
       status: form.status,
       dueDate: form.dueDate || null,
@@ -284,16 +279,20 @@ export default function BoardClient({
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <div
-                          className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white ${avatarColor(
-                            t.requester.name
-                          )}`}
-                        >
-                          {initials(t.requester.name)}
+                      {t.requester ? (
+                        <div className="flex items-center gap-1.5">
+                          <div
+                            className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white ${avatarColor(
+                              t.requester.name
+                            )}`}
+                          >
+                            {initials(t.requester.name)}
+                          </div>
+                          <span className="text-xs text-slate-500">{t.requester.name}</span>
                         </div>
-                        <span className="text-xs text-slate-500">{t.requester.name}</span>
-                      </div>
+                      ) : (
+                        <span className="text-xs italic text-slate-400">No requester</span>
+                      )}
 
                       <select
                         value={t.status}
@@ -364,6 +363,7 @@ export default function BoardClient({
                     onChange={(e) => setForm({ ...form, requesterId: e.target.value })}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
                   >
+                    <option value="">No requester</option>
                     {requesters.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
@@ -429,7 +429,7 @@ export default function BoardClient({
               </button>
               <button
                 onClick={handleSave}
-                disabled={saving || !form.title.trim() || !form.requesterId}
+                disabled={saving || !form.title.trim()}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
               >
                 {saving ? "Saving..." : "Save"}

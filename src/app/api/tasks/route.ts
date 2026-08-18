@@ -25,20 +25,22 @@ export async function POST(request: Request) {
 
   const { title, description, requesterId, priority, status, dueDate } = await request.json();
 
-  if (!title || !requesterId) {
-    return NextResponse.json({ error: "Title and requester are required" }, { status: 400 });
+  if (!title) {
+    return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
 
-  const requester = await prisma.requester.findUnique({ where: { id: requesterId } });
-  if (!requester || requester.ownerUserId !== session.user.id) {
-    return NextResponse.json({ error: "Invalid requester" }, { status: 400 });
+  if (requesterId) {
+    const requester = await prisma.requester.findUnique({ where: { id: requesterId } });
+    if (!requester || requester.ownerUserId !== session.user.id) {
+      return NextResponse.json({ error: "Invalid requester" }, { status: 400 });
+    }
   }
 
   const task = await prisma.task.create({
     data: {
       title,
       description: description || null,
-      requesterId,
+      ...(requesterId && { requesterId }),
       priority: priority || "Medium",
       status: status || "New",
       dueDate: dueDate ? new Date(dueDate) : null,

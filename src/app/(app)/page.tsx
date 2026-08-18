@@ -100,15 +100,16 @@ export default async function DashboardPage() {
                 <li key={task.id} className="flex items-center gap-4 py-3">
                   <div
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${avatarColor(
-                      task.requester.name
+                      task.requester?.name ?? "?"
                     )}`}
                   >
-                    {initials(task.requester.name)}
+                    {task.requester ? initials(task.requester.name) : "–"}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-slate-900">{task.title}</p>
                     <p className="truncate text-xs text-slate-500">
-                      {task.requester.name} · {STATUS_LABELS[task.status]}
+                      {task.requester ? task.requester.name : "No requester"} ·{" "}
+                      {STATUS_LABELS[task.status]}
                     </p>
                   </div>
                   <span
