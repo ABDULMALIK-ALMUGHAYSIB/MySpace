@@ -36,29 +36,27 @@
 
 ---
 
-## 3) نموذج البيانات (Data Model) المقترح
+## 3) نموذج البيانات (Data Model)
 
-**User**
-`id, name, email, password_hash, created_at`
+**Task** (جدول وحيد — `public.tasks` بـ Supabase)
+`id, title, description, requester_name (نص حر، اختياري), priority [High/Medium/Low], status [New/InProgress/Blocked/Done], due_date, user_id, created_at, updated_at`
 
-**Requester (الشخص الطالب)**
-`id, name, team/department (اختياري), notes, created_at`
-> بدل ما تكتب اسم الشخص كنص حر كل مرة، تسويه سجل قابل لإعادة الاستخدام — يفيدك لاحقاً بالفلترة والتقارير ("كم تاسك جاني من فلان").
-
-**Task**
-`id, title, description, requester_id, priority [High/Medium/Low], status [New/InProgress/Blocked/Done], due_date, created_at, updated_at, owner_user_id`
+> الحسابات نفسها تدار بالكامل من Supabase Auth (`auth.users`) — ما نحتاج جدول users خاص فينا. و"الشخص الطالب" حقل نص حر داخل التاسك مباشرة، مو جدول منفصل.
 
 ---
 
-## 4) التقنية المقترحة (Tech Stack)
+## 4) التقنية المستخدمة (Tech Stack)
+
+> **ملاحظة:** الستاك تغيّر عن الخطة الأصلية (كانت Next.js/Prisma/Turso/NextAuth) عشان يطابق مشروع "kalemati" السابق — خفيف وسريع بدون باك اند منفصل.
 
 | الجزء | الاختيار | السبب |
 |---|---|---|
-| Framework | **Next.js (React) + TypeScript** | فرونت وباك في مشروع واحد، سهل الإضافة عليه تدريجياً، مجتمع كبير |
+| Framework | **React 19 + Vite 7 + TypeScript** | خفيف وسريع، بدون تعقيد سيرفر |
 | التصميم | **Tailwind CSS** | تصميم سريع ونظيف بدون ما تكتب CSS كثير |
-| قاعدة البيانات | **Turso (SQLite متوافق، لكن سحابي)** | نفس بساطة SQLite لكن ما يفقد بياناتك عند كل نشر جديد |
-| ORM | **Prisma** | يسهل التعامل مع قاعدة البيانات وتعديل النموذج مستقبلاً |
-| نظام الحسابات | **Auth.js (NextAuth)** | تسجيل دخول/حساب جاهز وآمن، يدعم Email+Password |
+| الأيقونات | **lucide-react** | |
+| قاعدة البيانات | **Supabase (Postgres + Row Level Security)** | كل مستخدم يشوف بياناته بس، بدون كتابة أي كود تحقق يدوي |
+| نظام الحسابات | **Supabase Auth** | تسجيل دخول/حساب بالإيميل جاهز، مربوط مباشرة بالـ RLS |
+| الـ Backend | **بدون — CRUD مباشر من الفرونت عبر Supabase SDK** | RLS يحمي البيانات، ما نحتاج API منفصل بالمرحلة الأولى. لو احتجنا منطق سيرفر لاحقاً (مثلاً ميزات AI) نضيف `api/` كـ Vercel Serverless Functions وقتها بس |
 | الاستضافة | **Vercel** (مجاني للاستخدام الشخصي) | نشر بضغطة، رابط تفتحه من أي مكان بما فيه لابتوب الشغل |
 
 ---

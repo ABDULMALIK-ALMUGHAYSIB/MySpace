@@ -4,25 +4,28 @@ A personal task tracker for keeping up with requests from coworkers. See [PROJEC
 
 ## Stack
 
-Next.js (App Router) + TypeScript, Tailwind CSS, Prisma with a libSQL driver adapter (local SQLite file for dev, swap to Turso for cloud deployment), Auth.js (NextAuth) with email/password credentials.
+React 19 + Vite 7 + TypeScript, Tailwind CSS, [Supabase](https://supabase.com) (Postgres + Row Level Security + email/password Auth) accessed directly from the client, React Router. No separate backend yet — add a Vercel serverless function under `api/` later if server-side logic (e.g. AI features) is needed.
 
 ## Getting started
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In the Supabase dashboard, open **SQL Editor** and run the contents of [`supabase/schema.sql`](./supabase/schema.sql) — this creates the `tasks` table and its Row Level Security policies.
+3. Copy `.env.example` to `.env.local` and fill in your project's URL and anon key (**Settings → API** in the Supabase dashboard).
+4. Install and run:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), sign up for an account, add a requester, then start creating tasks on the board.
+Open the printed local URL, sign up for an account, then start creating tasks on the board.
 
-## Database
+> By default Supabase requires email confirmation before a new account can log in. For a quick personal setup you can disable that under **Authentication → Providers → Email → Confirm email** in the Supabase dashboard.
 
-Local dev uses a SQLite file at `dev.db` (git-ignored). To change the schema, edit `prisma/schema.prisma` then run:
+## Data model
 
-```bash
-npx prisma migrate dev --name <change-description>
-```
+A single `tasks` table (see `supabase/schema.sql`): title, description, priority, status, due date, and a free-text `requester_name` (optional — not a separate entity). RLS policies scope every row to `auth.uid()`, so each user only ever sees their own tasks.
 
 ## Deploying
 
-Not deployed yet. The plan is to move the database to [Turso](https://turso.tech) (libSQL-compatible, so no adapter change needed — just swap `DATABASE_URL`/`DATABASE_AUTH_TOKEN`) and host on [Vercel](https://vercel.com).
+Push to a Git repo and import it on [Vercel](https://vercel.com) with the Vite framework preset. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as project environment variables — `vercel.json` already handles the SPA rewrite so client-side routes like `/board` work on refresh.

@@ -43,12 +43,12 @@ export function initials(name: string) {
     .join("");
 }
 
-export function isOverdue(dueDate: string | Date | null, status: string) {
+export function isOverdue(dueDate: string | null, status: string) {
   if (!dueDate || status === "Done") return false;
   return new Date(dueDate) < new Date(new Date().toDateString());
 }
 
-export function formatDate(date: string | Date | null) {
+export function formatDate(date: string | null) {
   if (!date) return null;
   return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
