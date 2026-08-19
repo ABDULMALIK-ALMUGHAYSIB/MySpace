@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 
 const INPUT_CLASS =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -31,12 +31,14 @@ export default function LoginPage() {
 
   return (
     <>
-      <h1 className="mb-1 text-xl font-semibold text-slate-900">Welcome back</h1>
-      <p className="mb-6 text-sm text-slate-500">Log in to your MySpace</p>
+      <h1 className="mb-1 text-xl font-semibold text-slate-900 dark:text-white">Welcome back</h1>
+      <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">Log in to your MySpace</p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Email
+          </label>
           <input
             type="email"
             required
@@ -47,7 +49,9 @@ export default function LoginPage() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Password</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Password
+          </label>
           <input
             type="password"
             required
@@ -69,9 +73,9 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-500">
+      <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
         Don&apos;t have an account?{" "}
-        <Link to="/signup" className="font-medium text-blue-600 hover:underline">
+        <Link to="/signup" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
           Sign up
         </Link>
       </p>

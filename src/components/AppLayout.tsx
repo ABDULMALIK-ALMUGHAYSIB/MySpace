@@ -8,7 +8,7 @@ export default function AppLayout() {
   const userEmail = user?.email ?? "";
 
   return (
-    <div className="flex min-h-screen flex-1 bg-slate-50">
+    <div className="flex min-h-screen flex-1 bg-slate-50 dark:bg-slate-900">
       <Sidebar userName={userName} userEmail={userEmail} />
       <main className="flex-1 overflow-x-hidden">
         <div className="mx-auto max-w-6xl px-6 py-8">

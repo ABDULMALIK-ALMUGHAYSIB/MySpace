@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 
 const INPUT_CLASS =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white";
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -44,10 +44,13 @@ export default function SignupPage() {
   if (needsConfirmation) {
     return (
       <>
-        <h1 className="mb-1 text-xl font-semibold text-slate-900">Check your email</h1>
-        <p className="text-sm text-slate-500">
-          We sent a confirmation link to <span className="font-medium text-slate-700">{email}</span>.
-          Click it, then come back and log in.
+        <h1 className="mb-1 text-xl font-semibold text-slate-900 dark:text-white">
+          Check your email
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          We sent a confirmation link to{" "}
+          <span className="font-medium text-slate-700 dark:text-slate-300">{email}</span>. Click
+          it, then come back and log in.
         </p>
         <Link
           to="/login"
@@ -61,12 +64,16 @@ export default function SignupPage() {
 
   return (
     <>
-      <h1 className="mb-1 text-xl font-semibold text-slate-900">Create your account</h1>
-      <p className="mb-6 text-sm text-slate-500">Start tracking your tasks</p>
+      <h1 className="mb-1 text-xl font-semibold text-slate-900 dark:text-white">
+        Create your account
+      </h1>
+      <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">Start tracking your tasks</p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Name</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Name
+          </label>
           <input
             type="text"
             required
@@ -77,7 +84,9 @@ export default function SignupPage() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Email
+          </label>
           <input
             type="email"
             required
@@ -88,7 +97,9 @@ export default function SignupPage() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Password</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Password
+          </label>
           <input
             type="password"
             required
@@ -111,9 +122,9 @@ export default function SignupPage() {
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-500">
+      <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
         Already have an account?{" "}
-        <Link to="/login" className="font-medium text-blue-600 hover:underline">
+        <Link to="/login" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
           Log in
         </Link>
       </p>

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, KanbanSquare, LogOut, Plus } from "lucide-react";
+import { LayoutDashboard, KanbanSquare, LogOut, Plus, Moon, Sun } from "lucide-react";
 import { initials, avatarColor } from "@/lib/task-meta";
 import { supabase } from "@/lib/supabase";
+import { useTheme } from "@/lib/theme";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -19,6 +20,7 @@ export default function Sidebar({
   const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+  const { isDark, toggle } = useTheme();
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -71,11 +73,22 @@ export default function Sidebar({
       <Link
         to="/board?new=1"
         title={collapsed ? "Add New Task" : undefined}
-        className="mb-4 flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+        className="mb-2 flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
       >
         <Plus size={16} />
         {!collapsed && "Add New Task"}
       </Link>
+
+      <button
+        onClick={toggle}
+        title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        className={`mb-4 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-900 hover:text-white ${
+          collapsed ? "justify-center" : ""
+        }`}
+      >
+        {isDark ? <Sun size={16} /> : <Moon size={16} />}
+        {!collapsed && (isDark ? "Light mode" : "Dark mode")}
+      </button>
 
       <div
         className={`flex items-center gap-3 rounded-lg border-t border-slate-800 pt-4 ${

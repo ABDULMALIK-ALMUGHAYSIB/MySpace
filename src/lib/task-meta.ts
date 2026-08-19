@@ -12,9 +12,10 @@ export const PRIORITIES = ["High", "Medium", "Low"] as const;
 export type PriorityValue = (typeof PRIORITIES)[number];
 
 export const PRIORITY_STYLES: Record<PriorityValue, string> = {
-  High: "bg-red-100 text-red-700 border-red-200",
-  Medium: "bg-amber-100 text-amber-700 border-amber-200",
-  Low: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  High: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-400 dark:border-red-500/30",
+  Medium:
+    "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/30",
+  Low: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30",
 };
 
 const AVATAR_COLORS = [
@@ -51,4 +52,15 @@ export function isOverdue(dueDate: string | null, status: string) {
 export function formatDate(date: string | null) {
   if (!date) return null;
   return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+export function daysRemaining(dueDate: string | null, status: string) {
+  if (!dueDate || status === "Done") return null;
+  const today = new Date(new Date().toDateString());
+  const due = new Date(new Date(dueDate).toDateString());
+  const diffDays = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+  if (diffDays < 0) return null;
+  if (diffDays === 0) return "Due today";
+  if (diffDays === 1) return "1 day left";
+  return `${diffDays} days left`;
 }

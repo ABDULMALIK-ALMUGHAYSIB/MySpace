@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { GripVertical, Pencil, Plus, Trash2, X } from "lucide-react";
+import { GripVertical, Inbox, Pencil, Plus, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
 import type { Task } from "@/lib/types";
@@ -12,6 +13,7 @@ import {
   STATUS_LABELS,
   type StatusValue,
   avatarColor,
+  daysRemaining,
   formatDate,
   initials,
   isOverdue,
@@ -25,7 +27,7 @@ const COLUMN_STYLES: Record<StatusValue, string> = {
 };
 
 const INPUT_CLASS =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white";
 
 const emptyForm = {
   title: "",
@@ -109,30 +111,55 @@ export default function BoardPage() {
     };
 
     if (modalTask === "new") {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("tasks")
         .insert({ ...payload, user_id: user.id })
         .select()
         .single();
-      if (data) setTasks((prev) => [data, ...prev]);
+      if (data) {
+        setTasks((prev) => [data, ...prev]);
+        toast.success("Task created");
+      } else if (error) {
+        toast.error("Couldn't create task");
+      }
     } else if (modalTask) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("tasks")
         .update(payload)
         .eq("id", modalTask.id)
         .select()
         .single();
-      if (data) setTasks((prev) => prev.map((t) => (t.id === data.id ? data : t)));
+      if (data) {
+        setTasks((prev) => prev.map((t) => (t.id === data.id ? data : t)));
+        toast.success("Task updated");
+      } else if (error) {
+        toast.error("Couldn't update task");
+      }
     }
 
     setSaving(false);
     setModalTask(null);
   }
 
-  async function handleDelete(t: Task) {
-    if (!confirm(`Delete "${t.title}"?`)) return;
+  function handleDelete(t: Task) {
     setTasks((prev) => prev.filter((x) => x.id !== t.id));
-    await supabase.from("tasks").delete().eq("id", t.id);
+    let undone = false;
+
+    toast(`"${t.title}" deleted`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          undone = true;
+          setTasks((prev) => [t, ...prev]);
+        },
+      },
+      onAutoClose: () => {
+        if (!undone) supabase.from("tasks").delete().eq("id", t.id).then();
+      },
+      onDismiss: () => {
+        if (!undone) supabase.from("tasks").delete().eq("id", t.id).then();
+      },
+    });
   }
 
   async function handleStatusChange(taskId: string, status: StatusValue) {
@@ -170,8 +197,10 @@ export default function BoardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Board</h1>
-        <p className="mt-1 text-sm text-slate-500">Track every task from request to done.</p>
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Board</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Track every task from request to done.
+        </p>
       </div>
 
       <div className="flex flex-col gap-5">
@@ -187,7 +216,7 @@ export default function BoardPage() {
           <select
             value={filterRequester}
             onChange={(e) => setFilterRequester(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
           >
             <option value="">All requesters</option>
             {requesterOptions.map((name) => (
@@ -200,7 +229,7 @@ export default function BoardPage() {
           <select
             value={filterPriority}
             onChange={(e) => setFilterPriority(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
           >
             <option value="">All priorities</option>
             {PRIORITIES.map((p) => (
@@ -214,8 +243,8 @@ export default function BoardPage() {
             onClick={() => setSortByDue((v) => !v)}
             className={`rounded-lg border px-3 py-2 text-sm font-medium ${
               sortByDue
-                ? "border-blue-600 bg-blue-50 text-blue-700"
-                : "border-slate-300 bg-white text-slate-700"
+                ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-500/10 dark:text-blue-400"
+                : "border-slate-300 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             }`}
           >
             Sort by due date
@@ -223,16 +252,30 @@ export default function BoardPage() {
         </div>
 
         {loading ? (
-          <p className="py-8 text-center text-sm text-slate-400">Loading...</p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {STATUSES.map((status) => (
+              <div key={status} className="flex flex-col gap-3">
+                <div className="h-4 w-20 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+                <div className="flex flex-col gap-3 rounded-2xl bg-slate-100/60 p-3 dark:bg-slate-800/60">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-24 animate-pulse rounded-xl bg-white dark:bg-slate-800"
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             {columns.map((col) => (
               <div key={col.status} className="flex flex-col gap-3">
                 <div className="flex items-center justify-between px-1">
-                  <h3 className="text-sm font-semibold text-slate-700">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                     {STATUS_LABELS[col.status]}
                   </h3>
-                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
                     {col.tasks.length}
                   </span>
                 </div>
@@ -244,16 +287,22 @@ export default function BoardPage() {
                   }}
                   onDragLeave={() => setDragOverStatus((s) => (s === col.status ? null : s))}
                   onDrop={(e) => handleDrop(col.status, e)}
-                  className={`flex flex-col gap-3 rounded-2xl border-t-4 bg-slate-100/60 p-3 transition-colors ${COLUMN_STYLES[col.status]} ${
-                    dragOverStatus === col.status ? "bg-blue-50 ring-2 ring-blue-300" : ""
+                  className={`flex flex-col gap-3 rounded-2xl border-t-4 bg-slate-100/60 p-3 transition-colors dark:bg-slate-800/60 ${COLUMN_STYLES[col.status]} ${
+                    dragOverStatus === col.status
+                      ? "bg-blue-50 ring-2 ring-blue-300 dark:bg-blue-500/10 dark:ring-blue-500/40"
+                      : ""
                   }`}
                   style={{ minHeight: 120 }}
                 >
                   {col.tasks.length === 0 && (
-                    <p className="py-6 text-center text-xs text-slate-400">No tasks</p>
+                    <div className="flex flex-col items-center gap-1.5 py-6 text-center">
+                      <Inbox size={18} className="text-slate-300 dark:text-slate-600" />
+                      <p className="text-xs text-slate-400 dark:text-slate-500">No tasks</p>
+                    </div>
                   )}
                   {col.tasks.map((t) => {
                     const overdueFlag = isOverdue(t.due_date, t.status);
+                    const remaining = daysRemaining(t.due_date, t.status);
                     return (
                       <div
                         key={t.id}
@@ -262,25 +311,30 @@ export default function BoardPage() {
                           e.dataTransfer.setData("text/plain", t.id);
                           e.dataTransfer.effectAllowed = "move";
                         }}
-                        className={`cursor-grab rounded-xl bg-white p-4 shadow-sm ring-1 active:cursor-grabbing ${
-                          overdueFlag ? "ring-red-300" : "ring-transparent"
+                        className={`cursor-grab rounded-xl bg-white p-4 shadow-sm ring-1 transition-shadow hover:shadow-md active:cursor-grabbing dark:bg-slate-800 ${
+                          overdueFlag ? "ring-red-300 dark:ring-red-500/40" : "ring-transparent"
                         }`}
                       >
                         <div className="mb-2 flex items-start justify-between gap-2">
                           <div className="flex min-w-0 items-start gap-1.5">
-                            <GripVertical size={14} className="mt-0.5 shrink-0 text-slate-300" />
-                            <p className="text-sm font-medium text-slate-900">{t.title}</p>
+                            <GripVertical
+                              size={14}
+                              className="mt-0.5 shrink-0 text-slate-300 dark:text-slate-600"
+                            />
+                            <p className="text-sm font-medium text-slate-900 dark:text-white">
+                              {t.title}
+                            </p>
                           </div>
                           <div className="flex shrink-0 gap-1">
                             <button
                               onClick={() => openEdit(t)}
-                              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
                             >
                               <Pencil size={13} />
                             </button>
                             <button
                               onClick={() => handleDelete(t)}
-                              className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                              className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
                             >
                               <Trash2 size={13} />
                             </button>
@@ -288,7 +342,7 @@ export default function BoardPage() {
                         </div>
 
                         {t.description && (
-                          <p className="mb-3 line-clamp-2 text-xs text-slate-500">
+                          <p className="mb-3 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
                             {t.description}
                           </p>
                         )}
@@ -301,10 +355,15 @@ export default function BoardPage() {
                           </span>
                           {t.due_date && (
                             <span
-                              className={`text-[11px] font-medium ${overdueFlag ? "text-red-600" : "text-slate-500"}`}
+                              className={`text-[11px] font-medium ${overdueFlag ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
                             >
                               {overdueFlag ? "Overdue · " : "Due "}
                               {formatDate(t.due_date)}
+                            </span>
+                          )}
+                          {remaining && (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+                              {remaining}
                             </span>
                           )}
                         </div>
@@ -318,10 +377,14 @@ export default function BoardPage() {
                             >
                               {initials(t.requester_name)}
                             </div>
-                            <span className="text-xs text-slate-500">{t.requester_name}</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              {t.requester_name}
+                            </span>
                           </div>
                         ) : (
-                          <span className="text-xs italic text-slate-400">No requester</span>
+                          <span className="text-xs italic text-slate-400 dark:text-slate-500">
+                            No requester
+                          </span>
                         )}
                       </div>
                     );
@@ -334,15 +397,15 @@ export default function BoardPage() {
       </div>
 
       {modalTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="animate-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="animate-modal-in w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                 {modalTask === "new" ? "Add Task" : "Edit Task"}
               </h3>
               <button
                 onClick={() => setModalTask(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
               >
                 <X size={18} />
               </button>
@@ -350,7 +413,9 @@ export default function BoardPage() {
 
             <div className="flex flex-col gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Title</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-300">
+                  Title
+                </label>
                 <input
                   autoFocus
                   value={form.title}
@@ -361,7 +426,7 @@ export default function BoardPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
+                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
                   Notes (optional)
                 </label>
                 <textarea
@@ -373,7 +438,7 @@ export default function BoardPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
+                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
                   Requester (optional)
                 </label>
                 <input
@@ -392,7 +457,7 @@ export default function BoardPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Priority
                   </label>
                   <select
@@ -410,7 +475,7 @@ export default function BoardPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Status</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Status</label>
                   <select
                     value={form.status}
                     onChange={(e) => setForm({ ...form, status: e.target.value as StatusValue })}
@@ -426,7 +491,7 @@ export default function BoardPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Due date</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Due date</label>
                 <input
                   type="date"
                   value={form.dueDate}
@@ -439,7 +504,7 @@ export default function BoardPage() {
             <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setModalTask(null)}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 Cancel
               </button>

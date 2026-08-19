@@ -10,7 +10,7 @@ export default function AuthLayout() {
           </div>
           <span className="text-xl font-semibold text-white">MySpace</span>
         </div>
-        <div className="rounded-2xl bg-white p-8 shadow-xl">
+        <div className="rounded-2xl bg-white p-8 shadow-xl dark:bg-slate-800">
           <Outlet />
         </div>
       </div>
