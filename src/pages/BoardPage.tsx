@@ -54,6 +54,8 @@ export default function BoardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalTask, setModalTask] = useState<Task | "new" | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
@@ -82,7 +84,7 @@ export default function BoardPage() {
       setSearchParams({}, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   const requesterOptions = useMemo(
     () =>
@@ -179,24 +181,22 @@ export default function BoardPage() {
   }
 
   function handleDelete(t: Task) {
-    setTasks((prev) => prev.filter((x) => x.id !== t.id));
-    let undone = false;
+    setDeleteTarget(t);
+  }
 
-    toast(`"${t.title}" deleted`, {
-      action: {
-        label: "Undo",
-        onClick: () => {
-          undone = true;
-          setTasks((prev) => [t, ...prev]);
-        },
-      },
-      onAutoClose: () => {
-        if (!undone) supabase.from("tasks").delete().eq("id", t.id).then();
-      },
-      onDismiss: () => {
-        if (!undone) supabase.from("tasks").delete().eq("id", t.id).then();
-      },
-    });
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    const t = deleteTarget;
+    setDeleting(true);
+    const { error } = await supabase.from("tasks").delete().eq("id", t.id);
+    setDeleting(false);
+    setDeleteTarget(null);
+    if (error) {
+      toast.error("Couldn't delete task");
+      return;
+    }
+    setTasks((prev) => prev.filter((x) => x.id !== t.id));
+    toast.success(`"${t.title}" deleted`);
   }
 
   async function handleStatusChange(taskId: string, status: StatusValue) {
@@ -675,6 +675,37 @@ export default function BoardPage() {
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
               >
                 {saving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="animate-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="animate-modal-in w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Delete task?</h3>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-slate-700 dark:text-slate-300">
+                "{deleteTarget.title}"
+              </span>
+              ? This can't be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {deleting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>
