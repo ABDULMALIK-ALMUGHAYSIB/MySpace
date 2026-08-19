@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, KanbanSquare, LogOut, Plus, Moon, Sun } from "lucide-react";
+import {
+  LayoutDashboard,
+  KanbanSquare,
+  LogOut,
+  Plus,
+  Moon,
+  Sun,
+  FolderKanban,
+} from "lucide-react";
 import { initials, avatarColor } from "@/lib/task-meta";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/lib/theme";
@@ -40,8 +48,8 @@ export default function Sidebar({
           collapsed ? "justify-center" : ""
         }`}
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-xs font-bold text-white">
-          MS
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
+          <FolderKanban size={18} />
         </div>
         {!collapsed && <span className="text-lg font-semibold text-white">MySpace</span>}
       </button>
