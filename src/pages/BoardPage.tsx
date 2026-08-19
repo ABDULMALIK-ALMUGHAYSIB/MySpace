@@ -4,7 +4,7 @@ import { GripVertical, Inbox, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
-import type { Task } from "@/lib/types";
+import type { NotesType, Task } from "@/lib/types";
 import {
   PRIORITIES,
   PRIORITY_STYLES,
@@ -32,6 +32,8 @@ const INPUT_CLASS =
 const emptyForm = {
   title: "",
   description: "",
+  notesType: "note" as NotesType,
+  steps: [] as string[],
   requesterName: "",
   priority: "Medium" as PriorityValue,
   status: "New" as StatusValue,
@@ -52,6 +54,7 @@ export default function BoardPage() {
   const [filterPriority, setFilterPriority] = useState("");
   const [sortByDue, setSortByDue] = useState(false);
   const [dragOverStatus, setDragOverStatus] = useState<StatusValue | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -89,6 +92,8 @@ export default function BoardPage() {
     setForm({
       title: t.title,
       description: t.description ?? "",
+      notesType: t.notes_type ?? "note",
+      steps: t.steps?.length ? t.steps : [],
       requesterName: t.requester_name ?? "",
       priority: t.priority,
       status: t.status,
@@ -97,13 +102,36 @@ export default function BoardPage() {
     setModalTask(t);
   }
 
+  function setNotesType(notesType: NotesType) {
+    setForm((f) => ({
+      ...f,
+      notesType,
+      steps: notesType === "steps" && f.steps.length === 0 ? [""] : f.steps,
+    }));
+  }
+
+  function updateStep(index: number, value: string) {
+    setForm((f) => ({ ...f, steps: f.steps.map((s, i) => (i === index ? value : s)) }));
+  }
+
+  function addStep() {
+    setForm((f) => ({ ...f, steps: [...f.steps, ""] }));
+  }
+
+  function removeStep(index: number) {
+    setForm((f) => ({ ...f, steps: f.steps.filter((_, i) => i !== index) }));
+  }
+
   async function handleSave() {
     if (!form.title.trim() || !user) return;
     setSaving(true);
 
     const payload = {
       title: form.title,
-      description: form.description || null,
+      description: form.notesType === "note" ? form.description || null : null,
+      notes_type: form.notesType,
+      steps:
+        form.notesType === "steps" ? form.steps.map((s) => s.trim()).filter(Boolean) : [],
       requester_name: form.requesterName || null,
       priority: form.priority,
       status: form.status,
@@ -303,6 +331,8 @@ export default function BoardPage() {
                   {col.tasks.map((t) => {
                     const overdueFlag = isOverdue(t.due_date, t.status);
                     const remaining = daysRemaining(t.due_date, t.status);
+                    const steps = t.steps ?? [];
+                    const isDragging = draggingId === t.id;
                     return (
                       <div
                         key={t.id}
@@ -310,82 +340,119 @@ export default function BoardPage() {
                         onDragStart={(e) => {
                           e.dataTransfer.setData("text/plain", t.id);
                           e.dataTransfer.effectAllowed = "move";
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          e.dataTransfer.setDragImage(
+                            e.currentTarget,
+                            e.clientX - rect.left,
+                            e.clientY - rect.top
+                          );
+                          setTimeout(() => setDraggingId(t.id), 0);
                         }}
-                        className={`cursor-grab rounded-xl bg-white p-4 shadow-sm ring-1 transition-shadow hover:shadow-md active:cursor-grabbing dark:bg-slate-800 ${
-                          overdueFlag ? "ring-red-300 dark:ring-red-500/40" : "ring-transparent"
+                        onDragEnd={() => setDraggingId(null)}
+                        className={`rounded-xl p-4 transition-shadow active:cursor-grabbing ${
+                          isDragging
+                            ? "cursor-grabbing border-2 border-dashed border-slate-300 bg-slate-50 dark:border-slate-600 dark:bg-slate-900/40"
+                            : `cursor-grab bg-white shadow-sm ring-1 hover:shadow-md dark:bg-slate-800 ${
+                                overdueFlag
+                                  ? "ring-red-300 dark:ring-red-500/40"
+                                  : "ring-transparent"
+                              }`
                         }`}
                       >
-                        <div className="mb-2 flex items-start justify-between gap-2">
-                          <div className="flex min-w-0 items-start gap-1.5">
-                            <GripVertical
-                              size={14}
-                              className="mt-0.5 shrink-0 text-slate-300 dark:text-slate-600"
-                            />
-                            <p className="text-sm font-medium text-slate-900 dark:text-white">
-                              {t.title}
-                            </p>
-                          </div>
-                          <div className="flex shrink-0 gap-1">
-                            <button
-                              onClick={() => openEdit(t)}
-                              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
-                            >
-                              <Pencil size={13} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(t)}
-                              className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {t.description && (
-                          <p className="mb-3 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
-                            {t.description}
-                          </p>
-                        )}
-
-                        <div className="mb-3 flex flex-wrap items-center gap-2">
-                          <span
-                            className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${PRIORITY_STYLES[t.priority]}`}
-                          >
-                            {t.priority}
-                          </span>
-                          {t.due_date && (
-                            <span
-                              className={`text-[11px] font-medium ${overdueFlag ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
-                            >
-                              {overdueFlag ? "Overdue · " : "Due "}
-                              {formatDate(t.due_date)}
-                            </span>
-                          )}
-                          {remaining && (
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-300">
-                              {remaining}
-                            </span>
-                          )}
-                        </div>
-
-                        {t.requester_name ? (
-                          <div className="flex items-center gap-1.5">
-                            <div
-                              className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white ${avatarColor(
-                                t.requester_name
-                              )}`}
-                            >
-                              {initials(t.requester_name)}
+                        <div className={isDragging ? "invisible" : ""}>
+                          <div className="mb-2 flex items-start justify-between gap-2">
+                            <div className="flex min-w-0 items-start gap-1.5">
+                              <GripVertical
+                                size={14}
+                                className="mt-0.5 shrink-0 text-slate-300 dark:text-slate-600"
+                              />
+                              <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                {t.title}
+                              </p>
                             </div>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">
-                              {t.requester_name}
-                            </span>
+                            <div className="flex shrink-0 gap-1">
+                              <button
+                                onClick={() => openEdit(t)}
+                                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(t)}
+                                className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </div>
-                        ) : (
-                          <span className="text-xs italic text-slate-400 dark:text-slate-500">
-                            No requester
-                          </span>
-                        )}
+
+                          {t.notes_type === "steps" && steps.length > 0 ? (
+                            <ul className="mb-3 flex flex-col gap-0.5">
+                              {steps.slice(0, 3).map((s, i) => (
+                                <li
+                                  key={i}
+                                  className="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                  <span className="shrink-0 font-medium text-slate-400 dark:text-slate-500">
+                                    {i + 1}.
+                                  </span>
+                                  <span className="line-clamp-1">{s}</span>
+                                </li>
+                              ))}
+                              {steps.length > 3 && (
+                                <li className="pl-4 text-xs text-slate-400 dark:text-slate-500">
+                                  +{steps.length - 3} more
+                                </li>
+                              )}
+                            </ul>
+                          ) : (
+                            t.description && (
+                              <p className="mb-3 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
+                                {t.description}
+                              </p>
+                            )
+                          )}
+
+                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${PRIORITY_STYLES[t.priority]}`}
+                            >
+                              {t.priority}
+                            </span>
+                            {t.due_date && (
+                              <span
+                                className={`text-[11px] font-medium ${overdueFlag ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
+                              >
+                                {overdueFlag ? "Overdue · " : "Due "}
+                                {formatDate(t.due_date)}
+                              </span>
+                            )}
+                            {remaining && (
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+                                {remaining}
+                              </span>
+                            )}
+                          </div>
+
+                          {t.requester_name ? (
+                            <div className="flex items-center gap-1.5">
+                              <div
+                                className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white ${avatarColor(
+                                  t.requester_name
+                                )}`}
+                              >
+                                {initials(t.requester_name)}
+                              </div>
+                              <span className="text-xs text-slate-500 dark:text-slate-400">
+                                {t.requester_name}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs italic text-slate-400 dark:text-slate-500">
+                              No requester
+                            </span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -413,7 +480,7 @@ export default function BoardPage() {
 
             <div className="flex flex-col gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300 dark:text-slate-300">
+                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
                   Title
                 </label>
                 <input
@@ -426,15 +493,77 @@ export default function BoardPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Notes (optional)
-                </label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  rows={2}
-                  className={INPUT_CLASS}
-                />
+                <div className="mb-1 flex items-center justify-between">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Details (optional)
+                  </label>
+                  <div className="flex gap-0.5 rounded-lg border border-slate-300 p-0.5 dark:border-slate-600">
+                    <button
+                      type="button"
+                      onClick={() => setNotesType("note")}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                        form.notesType === "note"
+                          ? "bg-blue-600 text-white"
+                          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      Note
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNotesType("steps")}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                        form.notesType === "steps"
+                          ? "bg-blue-600 text-white"
+                          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      Steps
+                    </button>
+                  </div>
+                </div>
+
+                {form.notesType === "note" ? (
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    rows={2}
+                    className={INPUT_CLASS}
+                    placeholder="Add any extra context..."
+                  />
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {form.steps.map((step, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="w-4 shrink-0 text-right text-xs font-medium text-slate-400 dark:text-slate-500">
+                          {i + 1}.
+                        </span>
+                        <input
+                          autoFocus={i === form.steps.length - 1 && form.steps.length > 1}
+                          value={step}
+                          onChange={(e) => updateStep(i, e.target.value)}
+                          className={INPUT_CLASS}
+                          placeholder={`Step ${i + 1}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeStep(i)}
+                          className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addStep}
+                      className="flex items-center gap-1.5 self-start rounded-lg px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
+                    >
+                      <Plus size={14} />
+                      Add step
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>

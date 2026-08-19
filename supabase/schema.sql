@@ -5,6 +5,8 @@ create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   description text,
+  notes_type text not null default 'note' check (notes_type in ('note', 'steps')),
+  steps jsonb not null default '[]'::jsonb,
   priority text not null default 'Medium' check (priority in ('Low', 'Medium', 'High')),
   status text not null default 'New' check (status in ('New', 'InProgress', 'Blocked', 'Done')),
   due_date date,
@@ -13,6 +15,10 @@ create table if not exists public.tasks (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Safe to re-run: adds the new columns if this table already existed before they were introduced.
+alter table public.tasks add column if not exists notes_type text not null default 'note' check (notes_type in ('note', 'steps'));
+alter table public.tasks add column if not exists steps jsonb not null default '[]'::jsonb;
 
 create index if not exists tasks_user_id_idx on public.tasks (user_id);
 
