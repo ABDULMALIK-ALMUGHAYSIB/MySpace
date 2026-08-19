@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { GripVertical, Inbox, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +29,12 @@ const COLUMN_STYLES: Record<StatusValue, string> = {
 const INPUT_CLASS =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white";
 
+// 1x1 transparent gif used to suppress the browser's own (semi-transparent) drag
+// ghost so we can render a fully opaque custom preview that follows the cursor instead.
+const BLANK_DRAG_IMAGE = new Image();
+BLANK_DRAG_IMAGE.src =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7";
+
 const emptyForm = {
   title: "",
   description: "",
@@ -55,6 +61,8 @@ export default function BoardPage() {
   const [sortByDue, setSortByDue] = useState(false);
   const [dragOverStatus, setDragOverStatus] = useState<StatusValue | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const dragGrabOffset = useRef({ x: 24, y: 16 });
 
   useEffect(() => {
     supabase
@@ -198,6 +206,11 @@ export default function BoardPage() {
   function handleDrop(status: StatusValue, e: React.DragEvent) {
     e.preventDefault();
     setDragOverStatus(null);
+    // Don't rely solely on the source card's dragend: if the drop moves the task to a
+    // different column, React unmounts that card before dragend can fire on it, which
+    // would otherwise leave the floating preview and placeholder stuck on screen.
+    setDraggingId(null);
+    setDragPos(null);
     const taskId = e.dataTransfer.getData("text/plain");
     const task = tasks.find((t) => t.id === taskId);
     if (task && task.status !== status) handleStatusChange(taskId, status);
@@ -221,6 +234,8 @@ export default function BoardPage() {
     status,
     tasks: filtered.filter((t) => t.status === status),
   }));
+
+  const draggingTask = tasks.find((t) => t.id === draggingId) ?? null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -340,15 +355,25 @@ export default function BoardPage() {
                         onDragStart={(e) => {
                           e.dataTransfer.setData("text/plain", t.id);
                           e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setDragImage(BLANK_DRAG_IMAGE, 0, 0);
                           const rect = e.currentTarget.getBoundingClientRect();
-                          e.dataTransfer.setDragImage(
-                            e.currentTarget,
-                            e.clientX - rect.left,
-                            e.clientY - rect.top
-                          );
-                          setTimeout(() => setDraggingId(t.id), 0);
+                          // Clamp to the floating preview's own size (w-64, ~80px tall) so the
+                          // spot you grabbed stays under the cursor instead of trailing off.
+                          dragGrabOffset.current = {
+                            x: Math.min(e.clientX - rect.left, 220),
+                            y: Math.min(e.clientY - rect.top, 60),
+                          };
+                          setDraggingId(t.id);
+                          setDragPos({ x: e.clientX, y: e.clientY });
                         }}
-                        onDragEnd={() => setDraggingId(null)}
+                        onDrag={(e) => {
+                          if (e.clientX === 0 && e.clientY === 0) return;
+                          setDragPos({ x: e.clientX, y: e.clientY });
+                        }}
+                        onDragEnd={() => {
+                          setDraggingId(null);
+                          setDragPos(null);
+                        }}
                         className={`rounded-xl p-4 transition-shadow active:cursor-grabbing ${
                           isDragging
                             ? "cursor-grabbing border-2 border-dashed border-slate-300 bg-slate-50 dark:border-slate-600 dark:bg-slate-900/40"
@@ -462,6 +487,25 @@ export default function BoardPage() {
           </div>
         )}
       </div>
+
+      {draggingTask && dragPos && (
+        <div
+          className="pointer-events-none fixed z-50 w-64 -rotate-2 rounded-xl bg-white p-4 opacity-95 shadow-xl ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700"
+          style={{
+            left: dragPos.x - dragGrabOffset.current.x,
+            top: dragPos.y - dragGrabOffset.current.y,
+          }}
+        >
+          <p className="mb-2 truncate text-sm font-medium text-slate-900 dark:text-white">
+            {draggingTask.title}
+          </p>
+          <span
+            className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${PRIORITY_STYLES[draggingTask.priority]}`}
+          >
+            {draggingTask.priority}
+          </span>
+        </div>
+      )}
 
       {modalTask && (
         <div className="animate-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
