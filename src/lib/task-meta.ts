@@ -18,6 +18,15 @@ export const PRIORITY_STYLES: Record<PriorityValue, string> = {
   Low: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30",
 };
 
+// Strips dark: variants from a class string, for elements that must stay
+// on their light styling even when the app is in dark mode.
+export function forceLight(className: string) {
+  return className
+    .split(" ")
+    .filter((c) => !c.startsWith("dark:"))
+    .join(" ");
+}
+
 const AVATAR_COLORS = [
   "bg-blue-500",
   "bg-purple-500",

@@ -14,6 +14,7 @@ import {
   type StatusValue,
   avatarColor,
   daysRemaining,
+  forceLight,
   formatDate,
   initials,
   isOverdue,
@@ -376,35 +377,28 @@ export default function BoardPage() {
                         }}
                         className={`rounded-xl p-4 transition-shadow active:cursor-grabbing ${
                           isDragging
-                            ? "cursor-grabbing border-2 border-dashed border-slate-300 bg-slate-50 dark:border-slate-600 dark:bg-slate-900/40"
-                            : `cursor-grab bg-white shadow-sm ring-1 hover:shadow-md dark:bg-slate-800 ${
-                                overdueFlag
-                                  ? "ring-red-300 dark:ring-red-500/40"
-                                  : "ring-transparent"
+                            ? "cursor-grabbing border-2 border-dashed border-slate-300 bg-slate-50"
+                            : `cursor-grab bg-white shadow-sm ring-1 hover:shadow-md ${
+                                overdueFlag ? "ring-red-300" : "ring-transparent"
                               }`
                         }`}
                       >
                         <div className={isDragging ? "invisible" : ""}>
                           <div className="mb-2 flex items-start justify-between gap-2">
                             <div className="flex min-w-0 items-start gap-1.5">
-                              <GripVertical
-                                size={14}
-                                className="mt-0.5 shrink-0 text-slate-300 dark:text-slate-600"
-                              />
-                              <p className="text-sm font-medium text-slate-900 dark:text-white">
-                                {t.title}
-                              </p>
+                              <GripVertical size={14} className="mt-0.5 shrink-0 text-slate-300" />
+                              <p className="text-sm font-medium text-slate-900">{t.title}</p>
                             </div>
                             <div className="flex shrink-0 gap-1">
                               <button
                                 onClick={() => openEdit(t)}
-                                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                               >
                                 <Pencil size={13} />
                               </button>
                               <button
                                 onClick={() => handleDelete(t)}
-                                className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                                className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
                               >
                                 <Trash2 size={13} />
                               </button>
@@ -416,23 +410,23 @@ export default function BoardPage() {
                               {steps.slice(0, 3).map((s, i) => (
                                 <li
                                   key={i}
-                                  className="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400"
+                                  className="flex items-start gap-1.5 text-xs text-slate-500"
                                 >
-                                  <span className="shrink-0 font-medium text-slate-400 dark:text-slate-500">
+                                  <span className="shrink-0 font-medium text-slate-400">
                                     {i + 1}.
                                   </span>
                                   <span className="line-clamp-1">{s}</span>
                                 </li>
                               ))}
                               {steps.length > 3 && (
-                                <li className="pl-4 text-xs text-slate-400 dark:text-slate-500">
+                                <li className="pl-4 text-xs text-slate-400">
                                   +{steps.length - 3} more
                                 </li>
                               )}
                             </ul>
                           ) : (
                             t.description && (
-                              <p className="mb-3 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
+                              <p className="mb-3 line-clamp-2 text-xs text-slate-500">
                                 {t.description}
                               </p>
                             )
@@ -440,20 +434,20 @@ export default function BoardPage() {
 
                           <div className="mb-3 flex flex-wrap items-center gap-2">
                             <span
-                              className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${PRIORITY_STYLES[t.priority]}`}
+                              className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${forceLight(PRIORITY_STYLES[t.priority])}`}
                             >
                               {t.priority}
                             </span>
                             {t.due_date && (
                               <span
-                                className={`text-[11px] font-medium ${overdueFlag ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
+                                className={`text-[11px] font-medium ${overdueFlag ? "text-red-600" : "text-slate-500"}`}
                               >
                                 {overdueFlag ? "Overdue · " : "Due "}
                                 {formatDate(t.due_date)}
                               </span>
                             )}
                             {remaining && (
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
                                 {remaining}
                               </span>
                             )}
@@ -468,14 +462,10 @@ export default function BoardPage() {
                               >
                                 {initials(t.requester_name)}
                               </div>
-                              <span className="text-xs text-slate-500 dark:text-slate-400">
-                                {t.requester_name}
-                              </span>
+                              <span className="text-xs text-slate-500">{t.requester_name}</span>
                             </div>
                           ) : (
-                            <span className="text-xs italic text-slate-400 dark:text-slate-500">
-                              No requester
-                            </span>
+                            <span className="text-xs italic text-slate-400">No requester</span>
                           )}
                         </div>
                       </div>
@@ -490,17 +480,15 @@ export default function BoardPage() {
 
       {draggingTask && dragPos && (
         <div
-          className="pointer-events-none fixed z-50 w-64 -rotate-2 rounded-xl bg-white p-4 opacity-95 shadow-xl ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700"
+          className="pointer-events-none fixed z-50 w-64 -rotate-2 rounded-xl bg-white p-4 opacity-95 shadow-xl ring-1 ring-slate-200"
           style={{
             left: dragPos.x - dragGrabOffset.current.x,
             top: dragPos.y - dragGrabOffset.current.y,
           }}
         >
-          <p className="mb-2 truncate text-sm font-medium text-slate-900 dark:text-white">
-            {draggingTask.title}
-          </p>
+          <p className="mb-2 truncate text-sm font-medium text-slate-900">{draggingTask.title}</p>
           <span
-            className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${PRIORITY_STYLES[draggingTask.priority]}`}
+            className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${forceLight(PRIORITY_STYLES[draggingTask.priority])}`}
           >
             {draggingTask.priority}
           </span>
