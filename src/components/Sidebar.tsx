@@ -8,6 +8,7 @@ import {
   Moon,
   Sun,
   FolderKanban,
+  NotebookText,
   Pencil,
   Trash2,
   Check,
@@ -112,6 +113,21 @@ export default function Sidebar({
         >
           <LayoutDashboard size={18} />
           {!collapsed && "Dashboard"}
+        </Link>
+
+        <Link
+          to="/notes"
+          title={collapsed ? "Notes" : undefined}
+          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            collapsed ? "justify-center" : ""
+          } ${
+            location.pathname.startsWith("/notes")
+              ? "bg-slate-800 text-white"
+              : "text-slate-400 hover:bg-slate-900 hover:text-white"
+          }`}
+        >
+          <NotebookText size={18} />
+          {!collapsed && "Notes"}
         </Link>
 
         {collapsed ? (

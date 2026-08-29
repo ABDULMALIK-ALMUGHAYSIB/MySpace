@@ -11,6 +11,8 @@ import SignupPage from "@/pages/SignupPage";
 import DashboardPage from "@/pages/DashboardPage";
 import BoardPage from "@/pages/BoardPage";
 import BoardIndexRedirect from "@/pages/BoardIndexRedirect";
+import NotesPage from "@/pages/NotesPage";
+import NoteEditorPage from "@/pages/NoteEditorPage";
 import ProfilePage from "@/pages/ProfilePage";
 import { ThemeContext, useThemeState } from "@/lib/theme";
 
@@ -39,6 +41,8 @@ export default function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/board" element={<BoardIndexRedirect />} />
               <Route path="/board/:boardId" element={<BoardPage />} />
+              <Route path="/notes" element={<NotesPage />} />
+              <Route path="/notes/:noteId" element={<NoteEditorPage />} />
               <Route path="/profile" element={<ProfilePage />} />
             </Route>
           </Route>
