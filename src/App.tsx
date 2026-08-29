@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/context/AuthProvider";
+import { BoardsProvider } from "@/context/BoardsProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PublicOnlyRoute from "@/components/PublicOnlyRoute";
 import AuthLayout from "@/components/AuthLayout";
@@ -9,6 +10,7 @@ import LoginPage from "@/pages/LoginPage";
 import SignupPage from "@/pages/SignupPage";
 import DashboardPage from "@/pages/DashboardPage";
 import BoardPage from "@/pages/BoardPage";
+import BoardIndexRedirect from "@/pages/BoardIndexRedirect";
 import ProfilePage from "@/pages/ProfilePage";
 import { ThemeContext, useThemeState } from "@/lib/theme";
 
@@ -27,9 +29,16 @@ export default function App() {
           </Route>
 
           <Route element={<ProtectedRoute />}>
-            <Route element={<AppLayout />}>
+            <Route
+              element={
+                <BoardsProvider>
+                  <AppLayout />
+                </BoardsProvider>
+              }
+            >
               <Route path="/" element={<DashboardPage />} />
-              <Route path="/board" element={<BoardPage />} />
+              <Route path="/board" element={<BoardIndexRedirect />} />
+              <Route path="/board/:boardId" element={<BoardPage />} />
               <Route path="/profile" element={<ProfilePage />} />
             </Route>
           </Route>

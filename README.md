@@ -9,7 +9,7 @@ React 19 + Vite 7 + TypeScript, Tailwind CSS, [Supabase](https://supabase.com) (
 ## Getting started
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. In the Supabase dashboard, open **SQL Editor** and run the contents of [`supabase/schema.sql`](./supabase/schema.sql) — this creates the `tasks` table and its Row Level Security policies.
+2. In the Supabase dashboard, open **SQL Editor** and run the contents of [`supabase/schema.sql`](./supabase/schema.sql) — this creates the `boards` and `tasks` tables and their Row Level Security policies. It's safe to re-run against a project that already has the old (board-less) `tasks` table — it adds the `boards` table, adds `tasks.board_id`, and backfills any existing tasks into a new "General" board per user.
 3. Copy `.env.example` to `.env.local` and fill in your project's URL and anon key (**Settings → API** in the Supabase dashboard).
 4. Install and run:
 
@@ -24,7 +24,7 @@ Open the printed local URL, sign up for an account, then start creating tasks on
 
 ## Data model
 
-A single `tasks` table (see `supabase/schema.sql`): title, description, priority, status, due date, and a free-text `requester_name` (optional — not a separate entity). RLS policies scope every row to `auth.uid()`, so each user only ever sees their own tasks.
+Two tables (see `supabase/schema.sql`): `boards` (just a name, e.g. "Daily", "Weekly", or a project name) and `tasks`, each scoped to a `board_id`. A task also has title, description, priority, status, due date, and a free-text `requester_name` (optional — not a separate entity). RLS policies scope every row to `auth.uid()`, so each user only ever sees their own boards and tasks. Deleting a board deletes its tasks too.
 
 ## Deploying
 

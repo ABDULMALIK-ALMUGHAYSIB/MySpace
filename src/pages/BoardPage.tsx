@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { GripVertical, Inbox, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Check, GripVertical, Inbox, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
+import { useBoards } from "@/context/BoardsProvider";
+import { LAST_BOARD_KEY } from "@/lib/last-board";
 import type { NotesType, Task } from "@/lib/types";
 import {
   PRIORITIES,
@@ -49,7 +51,12 @@ const emptyForm = {
 
 export default function BoardPage() {
   const { user } = useAuth();
+  const { boardId } = useParams<{ boardId: string }>();
+  const { boards, renameBoard, deleteBoard } = useBoards();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const board = boards.find((b) => b.id === boardId) ?? null;
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +65,9 @@ export default function BoardPage() {
   const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [editingBoardName, setEditingBoardName] = useState(false);
+  const [boardNameDraft, setBoardNameDraft] = useState("");
+  const [deleteBoardConfirm, setDeleteBoardConfirm] = useState(false);
 
   const [filterRequester, setFilterRequester] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
@@ -68,15 +78,23 @@ export default function BoardPage() {
   const dragGrabOffset = useRef({ x: 24, y: 16 });
 
   useEffect(() => {
+    if (!boardId) return;
+    localStorage.setItem(LAST_BOARD_KEY, boardId);
+  }, [boardId]);
+
+  useEffect(() => {
+    if (!boardId) return;
+    setLoading(true);
     supabase
       .from("tasks")
       .select("*")
+      .eq("board_id", boardId)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
         setTasks(data ?? []);
         setLoading(false);
       });
-  }, []);
+  }, [boardId]);
 
   useEffect(() => {
     if (searchParams.get("new") === "1") {
@@ -85,6 +103,20 @@ export default function BoardPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  function startRenameBoard() {
+    if (!board) return;
+    setBoardNameDraft(board.name);
+    setEditingBoardName(true);
+  }
+
+  async function saveRenameBoard() {
+    const name = boardNameDraft.trim();
+    if (name && board && name !== board.name) {
+      await renameBoard(board.id, name);
+    }
+    setEditingBoardName(false);
+  }
 
   const requesterOptions = useMemo(
     () =>
@@ -134,7 +166,7 @@ export default function BoardPage() {
   }
 
   async function handleSave() {
-    if (!form.title.trim() || !user) return;
+    if (!form.title.trim() || !user || !boardId) return;
     setSaving(true);
 
     const payload = {
@@ -147,6 +179,7 @@ export default function BoardPage() {
       priority: form.priority,
       status: form.status,
       due_date: form.dueDate || null,
+      board_id: boardId,
     };
 
     if (modalTask === "new") {
@@ -182,6 +215,14 @@ export default function BoardPage() {
 
   function handleDelete(t: Task) {
     setDeleteTarget(t);
+  }
+
+  async function confirmDeleteBoard() {
+    if (!board) return;
+    await deleteBoard(board.id);
+    setDeleteBoardConfirm(false);
+    toast.success(`"${board.name}" board deleted`);
+    navigate("/board", { replace: true });
   }
 
   async function confirmDelete() {
@@ -241,7 +282,52 @@ export default function BoardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Board</h1>
+        {editingBoardName ? (
+          <div className="flex items-center gap-2">
+            <input
+              autoFocus
+              value={boardNameDraft}
+              onChange={(e) => setBoardNameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveRenameBoard();
+                if (e.key === "Escape") setEditingBoardName(false);
+              }}
+              className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-2xl font-semibold text-slate-900 outline-none focus:border-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+            />
+            <button
+              onClick={saveRenameBoard}
+              className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+            >
+              <Check size={18} />
+            </button>
+            <button
+              onClick={() => setEditingBoardName(false)}
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        ) : (
+          <div className="group flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">
+              {board?.name ?? "Board"}
+            </h1>
+            <button
+              onClick={startRenameBoard}
+              className="rounded-lg p-1.5 text-slate-300 opacity-0 hover:bg-slate-100 hover:text-slate-600 group-hover:opacity-100 dark:hover:bg-slate-700 dark:hover:text-slate-300"
+              title="Rename board"
+            >
+              <Pencil size={15} />
+            </button>
+            <button
+              onClick={() => setDeleteBoardConfirm(true)}
+              className="rounded-lg p-1.5 text-slate-300 opacity-0 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+              title="Delete board"
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
+        )}
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Track every task from request to done.
         </p>
@@ -675,6 +761,36 @@ export default function BoardPage() {
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
               >
                 {saving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteBoardConfirm && board && (
+        <div className="animate-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="animate-modal-in w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Delete board?</h3>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-slate-700 dark:text-slate-300">
+                "{board.name}"
+              </span>
+              ? All {tasks.length} task{tasks.length === 1 ? "" : "s"} on it will be deleted too.
+              This can't be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteBoardConfirm(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteBoard}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
               </button>
             </div>
           </div>
