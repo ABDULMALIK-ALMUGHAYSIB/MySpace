@@ -15,6 +15,7 @@ import {
   STATUS_LABELS,
   type StatusValue,
   avatarColor,
+  cardTint,
   daysRemaining,
   forceLight,
   formatDate,
@@ -461,11 +462,11 @@ export default function BoardPage() {
                           setDraggingId(null);
                           setDragPos(null);
                         }}
-                        className={`rounded-xl p-4 transition-shadow active:cursor-grabbing ${
+                        className={`rounded-xl p-4 transition-all active:cursor-grabbing ${
                           isDragging
                             ? "cursor-grabbing border-2 border-dashed border-slate-300 bg-slate-50"
-                            : `cursor-grab bg-white shadow-sm ring-1 hover:shadow-md ${
-                                overdueFlag ? "ring-red-300" : "ring-transparent"
+                            : `cursor-grab shadow-sm ring-1 hover:shadow-md hover:-translate-y-0.5 ${
+                                overdueFlag ? "bg-white ring-red-300" : cardTint(t.id)
                               }`
                         }`}
                       >
@@ -566,7 +567,7 @@ export default function BoardPage() {
 
       {draggingTask && dragPos && (
         <div
-          className="pointer-events-none fixed z-50 w-64 -rotate-2 rounded-xl bg-white p-4 opacity-95 shadow-xl ring-1 ring-slate-200"
+          className={`pointer-events-none fixed z-50 w-64 -rotate-2 rounded-xl p-4 opacity-95 shadow-xl ring-1 ${cardTint(draggingTask.id)}`}
           style={{
             left: dragPos.x - dragGrabOffset.current.x,
             top: dragPos.y - dragGrabOffset.current.y,

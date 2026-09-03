@@ -9,6 +9,7 @@ import {
   Sun,
   FolderKanban,
   NotebookText,
+  Mail,
   Pencil,
   Trash2,
   Check,
@@ -128,6 +129,21 @@ export default function Sidebar({
         >
           <NotebookText size={18} />
           {!collapsed && "Notes"}
+        </Link>
+
+        <Link
+          to="/emails"
+          title={collapsed ? "Emails" : undefined}
+          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            collapsed ? "justify-center" : ""
+          } ${
+            location.pathname.startsWith("/emails")
+              ? "bg-slate-800 text-white"
+              : "text-slate-400 hover:bg-slate-900 hover:text-white"
+          }`}
+        >
+          <Mail size={18} />
+          {!collapsed && "Emails"}
         </Link>
 
         {collapsed ? (

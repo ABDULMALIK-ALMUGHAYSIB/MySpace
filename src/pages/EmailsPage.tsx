@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { NotebookText, Plus, Trash2 } from "lucide-react";
+import { Mail, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
 import { cardTint } from "@/lib/task-meta";
-import type { Note } from "@/lib/types";
+import type { Email } from "@/lib/types";
 
 function extractText(blocks: unknown): string {
   if (!Array.isArray(blocks)) return "";
@@ -26,7 +26,7 @@ function extractText(blocks: unknown): string {
   return out.join(" ");
 }
 
-function notePreview(content: string) {
+function emailPreview(content: string) {
   if (!content) return "";
   try {
     return extractText(JSON.parse(content)).replace(/\s+/g, " ").trim();
@@ -43,54 +43,54 @@ function formatUpdated(date: string) {
   });
 }
 
-export default function NotesPage() {
+export default function EmailsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Note | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Email | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     supabase
-      .from("notes")
+      .from("emails")
       .select("*")
       .order("updated_at", { ascending: false })
       .then(({ data }) => {
-        setNotes(data ?? []);
+        setEmails(data ?? []);
         setLoading(false);
       });
   }, []);
 
-  async function handleNewNote() {
+  async function handleNewEmail() {
     if (!user || creating) return;
     setCreating(true);
     const { data, error } = await supabase
-      .from("notes")
+      .from("emails")
       .insert({ title: "", content: "", user_id: user.id })
       .select()
       .single();
     setCreating(false);
     if (error || !data) {
-      toast.error("Couldn't create note");
+      toast.error("Couldn't create email");
       return;
     }
-    navigate(`/notes/${data.id}?new=1`);
+    navigate(`/emails/${data.id}?new=1`);
   }
 
   async function confirmDelete() {
     if (!deleteTarget) return;
     const n = deleteTarget;
     setDeleting(true);
-    const { error } = await supabase.from("notes").delete().eq("id", n.id);
+    const { error } = await supabase.from("emails").delete().eq("id", n.id);
     setDeleting(false);
     setDeleteTarget(null);
     if (error) {
-      toast.error("Couldn't delete note");
+      toast.error("Couldn't delete email");
       return;
     }
-    setNotes((prev) => prev.filter((x) => x.id !== n.id));
+    setEmails((prev) => prev.filter((x) => x.id !== n.id));
     toast.success(`"${n.title || "Untitled"}" deleted`);
   }
 
@@ -98,18 +98,18 @@ export default function NotesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Notes</h1>
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Emails</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Write down anything you learn or need to remember.
+            Keep email formats and drafts you reuse.
           </p>
         </div>
         <button
-          onClick={handleNewNote}
+          onClick={handleNewEmail}
           disabled={creating}
           className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
         >
           <Plus size={16} />
-          New note
+          New email
         </button>
       </div>
 
@@ -119,40 +119,40 @@ export default function NotesPage() {
             <div key={i} className="h-32 animate-pulse rounded-2xl bg-white shadow-sm dark:bg-slate-800" />
           ))}
         </div>
-      ) : notes.length === 0 ? (
+      ) : emails.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl bg-white py-16 text-center shadow-sm dark:bg-slate-800">
-          <NotebookText size={28} className="text-slate-300 dark:text-slate-600" />
+          <Mail size={28} className="text-slate-300 dark:text-slate-600" />
           <p className="text-sm text-slate-400 dark:text-slate-500">
-            No notes yet. Start your first one.
+            No emails yet. Start your first one.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {notes.map((note) => {
-            const preview = notePreview(note.content);
+          {emails.map((email) => {
+            const preview = emailPreview(email.content);
             return (
               <div
-                key={note.id}
-                onClick={() => navigate(`/notes/${note.id}`)}
-                className={`group relative flex cursor-pointer flex-col gap-2 rounded-2xl p-5 ring-1 transition-all hover:-translate-y-0.5 ${cardTint(note.id)}`}
+                key={email.id}
+                onClick={() => navigate(`/emails/${email.id}`)}
+                className={`group relative flex cursor-pointer flex-col gap-2 rounded-2xl p-5 ring-1 transition-all hover:-translate-y-0.5 ${cardTint(email.id)}`}
               >
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setDeleteTarget(note);
+                    setDeleteTarget(email);
                   }}
                   className="absolute right-3 top-3 rounded p-1 text-slate-300 opacity-0 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
                 >
                   <Trash2 size={14} />
                 </button>
                 <p className="truncate pr-6 text-sm font-semibold text-slate-900">
-                  {note.title || "Untitled"}
+                  {email.title || "Untitled"}
                 </p>
                 <p className="line-clamp-3 min-h-[3.75rem] text-xs text-slate-500">
                   {preview || "No content yet."}
                 </p>
                 <p className="text-[11px] text-slate-400">
-                  Updated {formatUpdated(note.updated_at)}
+                  Updated {formatUpdated(email.updated_at)}
                 </p>
               </div>
             );
@@ -163,7 +163,7 @@ export default function NotesPage() {
       {deleteTarget && (
         <div className="animate-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="animate-modal-in w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Delete note?</h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Delete email?</h3>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
               Are you sure you want to delete{" "}
               <span className="font-medium text-slate-700 dark:text-slate-300">

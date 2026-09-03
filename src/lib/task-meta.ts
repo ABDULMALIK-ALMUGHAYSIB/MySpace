@@ -44,6 +44,23 @@ export function avatarColor(seed: string) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
+// Intentionally no dark: variants — these stay on their light pastel tint even when
+// the app is in dark mode, so any text on top of them must be forced light too.
+const CARD_TINTS = [
+  "bg-blue-50 ring-blue-100 hover:ring-blue-300",
+  "bg-purple-50 ring-purple-100 hover:ring-purple-300",
+  "bg-pink-50 ring-pink-100 hover:ring-pink-300",
+  "bg-amber-50 ring-amber-100 hover:ring-amber-300",
+  "bg-teal-50 ring-teal-100 hover:ring-teal-300",
+  "bg-indigo-50 ring-indigo-100 hover:ring-indigo-300",
+];
+
+export function cardTint(seed: string) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  return CARD_TINTS[Math.abs(hash) % CARD_TINTS.length];
+}
+
 export function initials(name: string) {
   return name
     .split(" ")
