@@ -492,6 +492,8 @@ export default function BoardPage() {
                             </div>
                           </div>
 
+                          <div className="mb-2.5 border-t border-slate-900/10" />
+
                           {t.notes_type === "steps" && steps.length > 0 ? (
                             <ul className="mb-3 flex flex-col gap-0.5">
                               {steps.slice(0, 3).map((s, i) => (

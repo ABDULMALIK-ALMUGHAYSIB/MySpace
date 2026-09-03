@@ -148,6 +148,7 @@ export default function EmailsPage() {
                 <p className="truncate pr-6 text-sm font-semibold text-slate-900">
                   {email.title || "Untitled"}
                 </p>
+                <div className="border-t border-slate-900/10" />
                 <p className="line-clamp-3 min-h-[3.75rem] text-xs text-slate-500">
                   {preview || "No content yet."}
                 </p>
