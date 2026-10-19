@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Check, GripVertical, Inbox, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, CircleAlert, GripVertical, Inbox, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
@@ -76,6 +76,10 @@ export default function BoardPage() {
   const [dragOverStatus, setDragOverStatus] = useState<StatusValue | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [dropIndicator, setDropIndicator] = useState<{ taskId: string; edge: "above" | "below" } | null>(
+    null
+  );
+  const [viewTask, setViewTask] = useState<Task | null>(null);
   const dragGrabOffset = useRef({ x: 24, y: 16 });
 
   useEffect(() => {
@@ -90,7 +94,7 @@ export default function BoardPage() {
       .from("tasks")
       .select("*")
       .eq("board_id", boardId)
-      .order("created_at", { ascending: false })
+      .order("position", { ascending: true })
       .then(({ data }) => {
         setTasks(data ?? []);
         setLoading(false);
@@ -184,13 +188,17 @@ export default function BoardPage() {
     };
 
     if (modalTask === "new") {
+      const columnTasks = tasks.filter((t) => t.status === form.status);
+      const position = columnTasks.length
+        ? Math.max(...columnTasks.map((t) => t.position)) + 1000
+        : 1000;
       const { data, error } = await supabase
         .from("tasks")
-        .insert({ ...payload, user_id: user.id })
+        .insert({ ...payload, user_id: user.id, position })
         .select()
         .single();
       if (data) {
-        setTasks((prev) => [data, ...prev]);
+        setTasks((prev) => [...prev, data]);
         toast.success("Task created");
       } else if (error) {
         toast.error("Couldn't create task");
@@ -241,22 +249,60 @@ export default function BoardPage() {
     toast.success(`"${t.title}" deleted`);
   }
 
-  async function handleStatusChange(taskId: string, status: StatusValue) {
-    setTasks((prev) => prev.map((x) => (x.id === taskId ? { ...x, status } : x)));
-    await supabase.from("tasks").update({ status }).eq("id", taskId);
+  async function moveTask(taskId: string, status: StatusValue, position: number) {
+    setTasks((prev) => prev.map((x) => (x.id === taskId ? { ...x, status, position } : x)));
+    await supabase.from("tasks").update({ status, position }).eq("id", taskId);
   }
 
-  function handleDrop(status: StatusValue, e: React.DragEvent) {
-    e.preventDefault();
+  function getTargetColumnTasks(status: StatusValue, excludeId: string) {
+    return filtered
+      .filter((t) => t.status === status && t.id !== excludeId)
+      .sort((a, b) => a.position - b.position);
+  }
+
+  function resetDragState() {
     setDragOverStatus(null);
+    setDropIndicator(null);
     // Don't rely solely on the source card's dragend: if the drop moves the task to a
     // different column, React unmounts that card before dragend can fire on it, which
     // would otherwise leave the floating preview and placeholder stuck on screen.
     setDraggingId(null);
     setDragPos(null);
+  }
+
+  function handleCardDrop(status: StatusValue, targetTask: Task, e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
     const taskId = e.dataTransfer.getData("text/plain");
-    const task = tasks.find((t) => t.id === taskId);
-    if (task && task.status !== status) handleStatusChange(taskId, status);
+    resetDragState();
+    if (!taskId || taskId === targetTask.id) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const edge: "above" | "below" = e.clientY - rect.top < rect.height / 2 ? "above" : "below";
+    const columnTasks = getTargetColumnTasks(status, taskId);
+    const idx = columnTasks.findIndex((t) => t.id === targetTask.id);
+    const prev = edge === "above" ? columnTasks[idx - 1] : columnTasks[idx];
+    const next = edge === "above" ? columnTasks[idx] : columnTasks[idx + 1];
+    const newPosition =
+      prev && next
+        ? (prev.position + next.position) / 2
+        : prev
+          ? prev.position + 1000
+          : next
+            ? next.position - 1000
+            : 1000;
+    moveTask(taskId, status, newPosition);
+  }
+
+  function handleColumnDrop(status: StatusValue, e: React.DragEvent) {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData("text/plain");
+    resetDragState();
+    if (!taskId) return;
+
+    const columnTasks = getTargetColumnTasks(status, taskId);
+    const newPosition = columnTasks.length ? columnTasks[columnTasks.length - 1].position + 1000 : 1000;
+    moveTask(taskId, status, newPosition);
   }
 
   const filtered = useMemo(() => {
@@ -273,10 +319,11 @@ export default function BoardPage() {
     return result;
   }, [tasks, filterRequester, filterPriority, sortByDue]);
 
-  const columns = STATUSES.map((status) => ({
-    status,
-    tasks: filtered.filter((t) => t.status === status),
-  }));
+  const columns = STATUSES.map((status) => {
+    const colTasks = filtered.filter((t) => t.status === status);
+    if (!sortByDue) colTasks.sort((a, b) => a.position - b.position);
+    return { status, tasks: colTasks };
+  });
 
   const draggingTask = tasks.find((t) => t.id === draggingId) ?? null;
 
@@ -415,9 +462,12 @@ export default function BoardPage() {
                   onDragOver={(e) => {
                     e.preventDefault();
                     setDragOverStatus(col.status);
+                    // Only clear the per-card insertion indicator when hovering the column's
+                    // own empty space — a bubbled dragover from a card already set it for us.
+                    if (e.target === e.currentTarget) setDropIndicator(null);
                   }}
                   onDragLeave={() => setDragOverStatus((s) => (s === col.status ? null : s))}
-                  onDrop={(e) => handleDrop(col.status, e)}
+                  onDrop={(e) => handleColumnDrop(col.status, e)}
                   className={`flex flex-col gap-3 rounded-2xl border-t-4 bg-slate-100/60 p-3 transition-colors dark:bg-slate-800/60 ${COLUMN_STYLES[col.status]} ${
                     dragOverStatus === col.status
                       ? "bg-blue-50 ring-2 ring-blue-300 dark:bg-blue-500/10 dark:ring-blue-500/40"
@@ -436,40 +486,54 @@ export default function BoardPage() {
                     const remaining = daysRemaining(t.due_date, t.status);
                     const steps = t.steps ?? [];
                     const isDragging = draggingId === t.id;
+                    const indicator =
+                      dropIndicator?.taskId === t.id ? dropIndicator.edge : null;
                     return (
-                      <div
-                        key={t.id}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData("text/plain", t.id);
-                          e.dataTransfer.effectAllowed = "move";
-                          e.dataTransfer.setDragImage(BLANK_DRAG_IMAGE, 0, 0);
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          // Clamp to the floating preview's own size (w-64, ~80px tall) so the
-                          // spot you grabbed stays under the cursor instead of trailing off.
-                          dragGrabOffset.current = {
-                            x: Math.min(e.clientX - rect.left, 220),
-                            y: Math.min(e.clientY - rect.top, 60),
-                          };
-                          setDraggingId(t.id);
-                          setDragPos({ x: e.clientX, y: e.clientY });
-                        }}
-                        onDrag={(e) => {
-                          if (e.clientX === 0 && e.clientY === 0) return;
-                          setDragPos({ x: e.clientX, y: e.clientY });
-                        }}
-                        onDragEnd={() => {
-                          setDraggingId(null);
-                          setDragPos(null);
-                        }}
-                        className={`rounded-xl p-4 transition-all active:cursor-grabbing ${
-                          isDragging
-                            ? "cursor-grabbing border-2 border-dashed border-slate-300 bg-slate-50"
-                            : `cursor-grab shadow-sm ring-1 hover:shadow-md hover:-translate-y-0.5 ${
-                                overdueFlag ? "bg-white ring-red-300" : cardTint(t.id)
-                              }`
-                        }`}
-                      >
+                      <div key={t.id} className="contents">
+                        {indicator === "above" && (
+                          <div className="h-0.5 shrink-0 rounded-full bg-blue-500" />
+                        )}
+                        <div
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", t.id);
+                            e.dataTransfer.effectAllowed = "move";
+                            e.dataTransfer.setDragImage(BLANK_DRAG_IMAGE, 0, 0);
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            // Clamp to the floating preview's own size (w-64, ~80px tall) so the
+                            // spot you grabbed stays under the cursor instead of trailing off.
+                            dragGrabOffset.current = {
+                              x: Math.min(e.clientX - rect.left, 220),
+                              y: Math.min(e.clientY - rect.top, 60),
+                            };
+                            setDraggingId(t.id);
+                            setDragPos({ x: e.clientX, y: e.clientY });
+                          }}
+                          onDrag={(e) => {
+                            if (e.clientX === 0 && e.clientY === 0) return;
+                            setDragPos({ x: e.clientX, y: e.clientY });
+                          }}
+                          onDragEnd={() => {
+                            setDraggingId(null);
+                            setDragPos(null);
+                            setDropIndicator(null);
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const edge: "above" | "below" =
+                              e.clientY - rect.top < rect.height / 2 ? "above" : "below";
+                            setDropIndicator({ taskId: t.id, edge });
+                          }}
+                          onDrop={(e) => handleCardDrop(col.status, t, e)}
+                          className={`rounded-xl p-4 transition-all active:cursor-grabbing ${
+                            isDragging
+                              ? "cursor-grabbing border-2 border-dashed border-slate-300 bg-slate-50 dark:border-slate-600 dark:bg-slate-700/40"
+                              : `cursor-grab shadow-sm ring-1 hover:shadow-md hover:-translate-y-0.5 ${
+                                  overdueFlag ? "bg-white ring-red-300" : cardTint(t.id)
+                                }`
+                          }`}
+                        >
                         <div className={isDragging ? "invisible" : ""}>
                           <div className="mb-2 flex items-start justify-between gap-2">
                             <div className="flex min-w-0 items-start gap-1.5">
@@ -478,10 +542,10 @@ export default function BoardPage() {
                             </div>
                             <div className="flex shrink-0 gap-1">
                               <button
-                                onClick={() => openEdit(t)}
+                                onClick={() => setViewTask(t)}
                                 className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                               >
-                                <Pencil size={13} />
+                                <CircleAlert size={13} />
                               </button>
                               <button
                                 onClick={() => handleDelete(t)}
@@ -557,6 +621,10 @@ export default function BoardPage() {
                             <span className="text-xs italic text-slate-400">No requester</span>
                           )}
                         </div>
+                        </div>
+                        {indicator === "below" && (
+                          <div className="h-0.5 shrink-0 rounded-full bg-blue-500" />
+                        )}
                       </div>
                     );
                   })}
@@ -581,6 +649,105 @@ export default function BoardPage() {
           >
             {draggingTask.priority}
           </span>
+        </div>
+      )}
+
+      {viewTask && (
+        <div className="animate-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="animate-modal-in w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800">
+            <div className="mb-4 flex items-start justify-between gap-2">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {viewTask.title}
+              </h3>
+              <button
+                onClick={() => setViewTask(null)}
+                className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-xs font-medium ${PRIORITY_STYLES[viewTask.priority]}`}
+                >
+                  {viewTask.priority}
+                </span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                  {STATUS_LABELS[viewTask.status]}
+                </span>
+                {viewTask.due_date && (
+                  <span
+                    className={`text-xs font-medium ${isOverdue(viewTask.due_date, viewTask.status) ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
+                  >
+                    {isOverdue(viewTask.due_date, viewTask.status) ? "Overdue · " : "Due "}
+                    {formatDate(viewTask.due_date)}
+                  </span>
+                )}
+              </div>
+
+              {viewTask.requester_name ? (
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white ${avatarColor(
+                      viewTask.requester_name
+                    )}`}
+                  >
+                    {initials(viewTask.requester_name)}
+                  </div>
+                  <span className="text-sm text-slate-600 dark:text-slate-300">
+                    {viewTask.requester_name}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-sm italic text-slate-400 dark:text-slate-500">
+                  No requester
+                </span>
+              )}
+
+              {viewTask.notes_type === "steps" && viewTask.steps.length > 0 ? (
+                <ol className="flex flex-col gap-1.5">
+                  {viewTask.steps.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                      <span className="shrink-0 font-medium text-slate-400 dark:text-slate-500">
+                        {i + 1}.
+                      </span>
+                      {s}
+                    </li>
+                  ))}
+                </ol>
+              ) : viewTask.description ? (
+                <p className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">
+                  {viewTask.description}
+                </p>
+              ) : (
+                <p className="text-sm italic text-slate-400 dark:text-slate-500">
+                  No details added.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setViewTask(null)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  const t = viewTask;
+                  setViewTask(null);
+                  openEdit(t);
+                }}
+                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                <Pencil size={14} />
+                Edit
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

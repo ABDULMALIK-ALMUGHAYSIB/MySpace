@@ -38,6 +38,7 @@ export type Task = {
   due_date: string | null;
   requester_name: string | null;
   board_id: string;
+  position: number;
   user_id: string;
   created_at: string;
   updated_at: string;

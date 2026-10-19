@@ -53,6 +53,7 @@ create table if not exists public.tasks (
 alter table public.tasks add column if not exists notes_type text not null default 'note' check (notes_type in ('note', 'steps'));
 alter table public.tasks add column if not exists steps jsonb not null default '[]'::jsonb;
 alter table public.tasks add column if not exists board_id uuid references public.boards (id) on delete cascade;
+alter table public.tasks add column if not exists position double precision;
 
 -- Backfill: any pre-existing tasks (from before boards existed) get filed into a
 -- new "General" board per user, so nothing becomes orphaned when board_id goes NOT NULL.
@@ -68,6 +69,20 @@ begin
 end $$;
 
 alter table public.tasks alter column board_id set not null;
+
+-- Backfill: give any task missing a manual sort position a stable one, ordered by
+-- creation time within its own status column, so drag-to-reorder has something to work from.
+with ranked as (
+  select id, row_number() over (partition by board_id, status order by created_at asc) as rn
+  from public.tasks
+  where position is null
+)
+update public.tasks t
+set position = ranked.rn * 1000
+from ranked
+where t.id = ranked.id;
+
+alter table public.tasks alter column position set not null;
 
 create index if not exists tasks_user_id_idx on public.tasks (user_id);
 create index if not exists tasks_board_id_idx on public.tasks (board_id);
