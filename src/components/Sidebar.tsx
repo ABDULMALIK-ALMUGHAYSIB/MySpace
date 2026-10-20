@@ -25,9 +25,13 @@ import type { Board } from "@/lib/types";
 export default function Sidebar({
   userName,
   userEmail,
+  mobileOpen,
+  onMobileClose,
 }: {
   userName: string;
   userEmail: string;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -82,11 +86,15 @@ export default function Sidebar({
   }
 
   return (
-    <aside
-      className={`flex shrink-0 flex-col bg-slate-950 py-6 ${
-        collapsed ? "w-20 px-2" : "w-64 px-4"
-      }`}
-    >
+    <>
+      {mobileOpen && (
+        <div onClick={onMobileClose} className="fixed inset-0 z-30 bg-black/40 md:hidden" />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col bg-slate-950 px-4 py-6 transition-transform duration-200 ease-out md:static md:translate-x-0 md:transition-none ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        } ${collapsed ? "md:w-20 md:px-2" : "md:w-64 md:px-4"}`}
+      >
       <button
         onClick={() => setCollapsed((v) => !v)}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -103,6 +111,7 @@ export default function Sidebar({
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
         <Link
           to="/"
+          onClick={onMobileClose}
           title={collapsed ? "Dashboard" : undefined}
           className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             collapsed ? "justify-center" : ""
@@ -118,6 +127,7 @@ export default function Sidebar({
 
         <Link
           to="/notes"
+          onClick={onMobileClose}
           title={collapsed ? "Notes" : undefined}
           className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             collapsed ? "justify-center" : ""
@@ -133,6 +143,7 @@ export default function Sidebar({
 
         <Link
           to="/emails"
+          onClick={onMobileClose}
           title={collapsed ? "Emails" : undefined}
           className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             collapsed ? "justify-center" : ""
@@ -149,6 +160,7 @@ export default function Sidebar({
         {collapsed ? (
           <Link
             to={quickAddBoardId ? `/board/${quickAddBoardId}` : "/board"}
+            onClick={onMobileClose}
             title="Boards"
             className={`flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               location.pathname.startsWith("/board")
@@ -207,6 +219,7 @@ export default function Sidebar({
                 <div key={board.id} className="group/board flex items-center gap-1">
                   <Link
                     to={`/board/${board.id}`}
+                    onClick={onMobileClose}
                     className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                       active
                         ? "bg-slate-800 text-white"
@@ -267,6 +280,7 @@ export default function Sidebar({
 
       <Link
         to={quickAddBoardId ? `/board/${quickAddBoardId}?new=1` : "/board?new=1"}
+        onClick={onMobileClose}
         title={collapsed ? "Add New Task" : undefined}
         className="mb-2 flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
       >
@@ -292,6 +306,7 @@ export default function Sidebar({
       >
         <Link
           to="/profile"
+          onClick={onMobileClose}
           title={collapsed ? `${userName} — Profile` : undefined}
           className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 hover:bg-slate-900 ${
             collapsed ? "justify-center" : ""
@@ -373,6 +388,7 @@ export default function Sidebar({
           </div>
         </div>
       )}
-    </aside>
+      </aside>
+    </>
   );
 }

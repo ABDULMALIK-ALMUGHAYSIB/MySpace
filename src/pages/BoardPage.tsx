@@ -81,6 +81,43 @@ export default function BoardPage() {
   );
   const [viewTask, setViewTask] = useState<Task | null>(null);
   const dragGrabOffset = useRef({ x: 24, y: 16 });
+  const dragPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  function updateDragPos(pos: { x: number; y: number } | null) {
+    dragPosRef.current = pos;
+    setDragPos(pos);
+  }
+
+  // Auto-scroll the page while dragging a card near the top/bottom edge of the
+  // scrollable content area, so you can drag into a part of a long column that's
+  // currently scrolled out of view instead of having to drop, scroll, and re-drag.
+  useEffect(() => {
+    if (!draggingId) return;
+    const scrollEl = document.getElementById("app-scroll-container");
+    if (!scrollEl) return;
+
+    const edge = 90;
+    const maxSpeed = 16;
+    let raf: number;
+
+    function tick() {
+      const pos = dragPosRef.current;
+      if (pos) {
+        const rect = scrollEl!.getBoundingClientRect();
+        if (pos.y < rect.top + edge) {
+          const intensity = (rect.top + edge - pos.y) / edge;
+          scrollEl!.scrollTop -= maxSpeed * Math.min(1, intensity);
+        } else if (pos.y > rect.bottom - edge) {
+          const intensity = (pos.y - (rect.bottom - edge)) / edge;
+          scrollEl!.scrollTop += maxSpeed * Math.min(1, intensity);
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    }
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [draggingId]);
 
   useEffect(() => {
     if (!boardId) return;
@@ -190,7 +227,7 @@ export default function BoardPage() {
     if (modalTask === "new") {
       const columnTasks = tasks.filter((t) => t.status === form.status);
       const position = columnTasks.length
-        ? Math.max(...columnTasks.map((t) => t.position)) + 1000
+        ? Math.min(...columnTasks.map((t) => t.position)) - 1000
         : 1000;
       const { data, error } = await supabase
         .from("tasks")
@@ -267,7 +304,7 @@ export default function BoardPage() {
     // different column, React unmounts that card before dragend can fire on it, which
     // would otherwise leave the floating preview and placeholder stuck on screen.
     setDraggingId(null);
-    setDragPos(null);
+    updateDragPos(null);
   }
 
   function handleCardDrop(status: StatusValue, targetTask: Task, e: React.DragEvent) {
@@ -507,15 +544,15 @@ export default function BoardPage() {
                               y: Math.min(e.clientY - rect.top, 60),
                             };
                             setDraggingId(t.id);
-                            setDragPos({ x: e.clientX, y: e.clientY });
+                            updateDragPos({ x: e.clientX, y: e.clientY });
                           }}
                           onDrag={(e) => {
                             if (e.clientX === 0 && e.clientY === 0) return;
-                            setDragPos({ x: e.clientX, y: e.clientY });
+                            updateDragPos({ x: e.clientX, y: e.clientY });
                           }}
                           onDragEnd={() => {
                             setDraggingId(null);
-                            setDragPos(null);
+                            updateDragPos(null);
                             setDropIndicator(null);
                           }}
                           onDragOver={(e) => {
