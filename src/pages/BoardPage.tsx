@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Check, CircleAlert, GripVertical, Inbox, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Check,
+  CircleAlert,
+  GripVertical,
+  Inbox,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
@@ -80,6 +90,7 @@ export default function BoardPage() {
     null
   );
   const [viewTask, setViewTask] = useState<Task | null>(null);
+  const [moveTarget, setMoveTarget] = useState<Task | null>(null);
   const dragGrabOffset = useRef({ x: 24, y: 16 });
   const dragPosRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -295,6 +306,14 @@ export default function BoardPage() {
     return filtered
       .filter((t) => t.status === status && t.id !== excludeId)
       .sort((a, b) => a.position - b.position);
+  }
+
+  function handleQuickMove(status: StatusValue) {
+    if (!moveTarget || status === moveTarget.status) return;
+    const columnTasks = getTargetColumnTasks(status, moveTarget.id);
+    const newPosition = columnTasks.length ? columnTasks[columnTasks.length - 1].position + 1000 : 1000;
+    moveTask(moveTarget.id, status, newPosition);
+    setMoveTarget(null);
   }
 
   function resetDragState() {
@@ -579,6 +598,13 @@ export default function BoardPage() {
                             </div>
                             <div className="flex shrink-0 gap-1">
                               <button
+                                onClick={() => setMoveTarget(t)}
+                                title="Move to another column"
+                                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:hidden"
+                              >
+                                <ArrowLeftRight size={13} />
+                              </button>
+                              <button
                                 onClick={() => setViewTask(t)}
                                 className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                               >
@@ -686,6 +712,45 @@ export default function BoardPage() {
           >
             {draggingTask.priority}
           </span>
+        </div>
+      )}
+
+      {moveTarget && (
+        <div className="animate-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="animate-modal-in w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800">
+            <div className="mb-1 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Move task</h3>
+              <button
+                onClick={() => setMoveTarget(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="mb-4 truncate text-sm text-slate-500 dark:text-slate-400">
+              {moveTarget.title}
+            </p>
+            <div className="flex flex-col gap-2">
+              {STATUSES.map((status) => {
+                const isCurrent = status === moveTarget.status;
+                return (
+                  <button
+                    key={status}
+                    onClick={() => handleQuickMove(status)}
+                    disabled={isCurrent}
+                    className={`flex items-center justify-between rounded-lg border px-4 py-3 text-sm font-medium ${
+                      isCurrent
+                        ? "cursor-default border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-400"
+                        : "border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-blue-50 dark:border-slate-700 dark:text-slate-200 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10"
+                    }`}
+                  >
+                    {STATUS_LABELS[status]}
+                    {isCurrent && <Check size={16} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
