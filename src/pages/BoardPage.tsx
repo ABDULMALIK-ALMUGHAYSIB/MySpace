@@ -171,6 +171,10 @@ export default function BoardPage() {
     setEditingBoardName(false);
   }
 
+  function stageLabel(status: StatusValue) {
+    return board?.stage_labels?.[status] || STATUS_LABELS[status];
+  }
+
   const requesterOptions = useMemo(
     () =>
       Array.from(
@@ -507,7 +511,7 @@ export default function BoardPage() {
               <div key={col.status} className="flex flex-col gap-3">
                 <div className="flex items-center justify-between px-1">
                   <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    {STATUS_LABELS[col.status]}
+                    {stageLabel(col.status)}
                   </h3>
                   <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
                     {col.tasks.length}
@@ -744,7 +748,7 @@ export default function BoardPage() {
                         : "border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-blue-50 dark:border-slate-700 dark:text-slate-200 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10"
                     }`}
                   >
-                    {STATUS_LABELS[status]}
+                    {stageLabel(status)}
                     {isCurrent && <Check size={16} />}
                   </button>
                 );
@@ -777,7 +781,7 @@ export default function BoardPage() {
                   {viewTask.priority}
                 </span>
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-                  {STATUS_LABELS[viewTask.status]}
+                  {stageLabel(viewTask.status)}
                 </span>
                 {viewTask.due_date && (
                   <span
@@ -1002,7 +1006,7 @@ export default function BoardPage() {
                   >
                     {STATUSES.map((s) => (
                       <option key={s} value={s}>
-                        {STATUS_LABELS[s]}
+                        {stageLabel(s)}
                       </option>
                     ))}
                   </select>

@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2, Clock, Flame, PartyPopper } from "lucide-r
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
 import { useBoards } from "@/context/BoardsProvider";
-import type { Task } from "@/lib/types";
+import type { Board, Task } from "@/lib/types";
 import {
   PRIORITY_STYLES,
   STATUS_LABELS,
@@ -13,6 +13,10 @@ import {
   initials,
   isOverdue,
 } from "@/lib/task-meta";
+
+function stageLabel(board: Board, task: Task) {
+  return board.stage_labels?.[task.status] || STATUS_LABELS[task.status];
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -209,7 +213,7 @@ export default function DashboardPage() {
                               </p>
                               <p className="truncate text-xs text-slate-500 dark:text-slate-400">
                                 {task.requester_name ? task.requester_name : "No requester"} ·{" "}
-                                {STATUS_LABELS[task.status]}
+                                {stageLabel(board, task)}
                               </p>
                             </div>
                             <span

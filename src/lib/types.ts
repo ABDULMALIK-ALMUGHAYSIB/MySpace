@@ -5,6 +5,7 @@ export type NotesType = "note" | "steps";
 export type Board = {
   id: string;
   name: string;
+  stage_labels: Partial<Record<StatusValue, string>>;
   user_id: string;
   created_at: string;
 };

@@ -10,17 +10,20 @@ import {
   FolderKanban,
   NotebookText,
   Mail,
-  Pencil,
+  Settings,
   Trash2,
   Check,
   X,
 } from "lucide-react";
-import { initials, avatarColor } from "@/lib/task-meta";
+import { STATUSES, STATUS_LABELS, type StatusValue, initials, avatarColor } from "@/lib/task-meta";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/lib/theme";
 import { useBoards } from "@/context/BoardsProvider";
 import { LAST_BOARD_KEY } from "@/lib/last-board";
 import type { Board } from "@/lib/types";
+
+const SETTINGS_INPUT_CLASS =
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white";
 
 export default function Sidebar({
   userName,
@@ -38,13 +41,17 @@ export default function Sidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const { isDark, toggle } = useTheme();
-  const { boards, createBoard, renameBoard, deleteBoard } = useBoards();
+  const { boards, createBoard, renameBoard, deleteBoard, renameStage } = useBoards();
 
   const [addingBoard, setAddingBoard] = useState(false);
   const [newBoardName, setNewBoardName] = useState("");
-  const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
-  const [editingBoardName, setEditingBoardName] = useState("");
   const [deleteBoardTarget, setDeleteBoardTarget] = useState<Board | null>(null);
+  const [settingsBoard, setSettingsBoard] = useState<Board | null>(null);
+  const [settingsName, setSettingsName] = useState("");
+  const [settingsStages, setSettingsStages] = useState<Record<StatusValue, string>>(
+    STATUS_LABELS
+  );
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const lastBoardId = localStorage.getItem(LAST_BOARD_KEY);
   const quickAddBoardId =
@@ -66,15 +73,30 @@ export default function Sidebar({
     if (board) navigate(`/board/${board.id}`);
   }
 
-  function startEditBoard(board: Board) {
-    setEditingBoardId(board.id);
-    setEditingBoardName(board.name);
+  function openBoardSettings(board: Board) {
+    setSettingsName(board.name);
+    setSettingsStages({ ...STATUS_LABELS, ...board.stage_labels });
+    setSettingsBoard(board);
   }
 
-  async function submitEditBoard() {
-    const name = editingBoardName.trim();
-    if (editingBoardId && name) await renameBoard(editingBoardId, name);
-    setEditingBoardId(null);
+  async function saveBoardSettings() {
+    if (!settingsBoard) return;
+    setSavingSettings(true);
+    const name = settingsName.trim();
+    const tasks: Promise<void>[] = [];
+    if (name && name !== settingsBoard.name) {
+      tasks.push(renameBoard(settingsBoard.id, name));
+    }
+    for (const status of STATUSES) {
+      const label = settingsStages[status].trim();
+      const current = settingsBoard.stage_labels?.[status] || STATUS_LABELS[status];
+      if (label && label !== current) {
+        tasks.push(renameStage(settingsBoard.id, status, label));
+      }
+    }
+    await Promise.all(tasks);
+    setSavingSettings(false);
+    setSettingsBoard(null);
   }
 
   async function confirmDeleteBoard() {
@@ -187,34 +209,6 @@ export default function Sidebar({
 
             {boards.map((board) => {
               const active = location.pathname === `/board/${board.id}`;
-              if (editingBoardId === board.id) {
-                return (
-                  <div key={board.id} className="flex items-center gap-1 px-2">
-                    <input
-                      autoFocus
-                      value={editingBoardName}
-                      onChange={(e) => setEditingBoardName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") submitEditBoard();
-                        if (e.key === "Escape") setEditingBoardId(null);
-                      }}
-                      className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-white outline-none focus:border-blue-500"
-                    />
-                    <button
-                      onClick={submitEditBoard}
-                      className="shrink-0 rounded p-1 text-emerald-400 hover:bg-slate-900"
-                    >
-                      <Check size={14} />
-                    </button>
-                    <button
-                      onClick={() => setEditingBoardId(null)}
-                      className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-900"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                );
-              }
               return (
                 <div key={board.id} className="group/board flex items-center gap-1">
                   <Link
@@ -230,18 +224,11 @@ export default function Sidebar({
                     <span className="truncate">{board.name}</span>
                   </Link>
                   <button
-                    onClick={() => startEditBoard(board)}
-                    title="Rename board"
+                    onClick={() => openBoardSettings(board)}
+                    title="Board settings"
                     className="shrink-0 rounded p-1 text-slate-500 opacity-0 hover:bg-slate-900 hover:text-white group-hover/board:opacity-100"
                   >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    onClick={() => setDeleteBoardTarget(board)}
-                    title="Delete board"
-                    className="shrink-0 rounded p-1 text-slate-500 opacity-0 hover:bg-red-500/10 hover:text-red-400 group-hover/board:opacity-100"
-                  >
-                    <Trash2 size={13} />
+                    <Settings size={13} />
                   </button>
                 </div>
               );
@@ -334,6 +321,90 @@ export default function Sidebar({
           <LogOut size={16} />
         </button>
       </div>
+      </aside>
+
+      {/* Rendered outside <aside> on purpose: that element has a CSS transform (for the
+          mobile slide-in drawer), which creates a new containing block for any
+          position: fixed descendant — trapping these overlays inside the sidebar's
+          narrow box instead of centering them on the full page. */}
+      {settingsBoard && (
+        <div className="animate-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="animate-modal-in w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                Board settings
+              </h3>
+              <button
+                onClick={() => setSettingsBoard(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Board name
+                </label>
+                <input
+                  value={settingsName}
+                  onChange={(e) => setSettingsName(e.target.value)}
+                  className={SETTINGS_INPUT_CLASS}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Stage names
+                </label>
+                <div className="flex flex-col gap-2">
+                  {STATUSES.map((status) => (
+                    <input
+                      key={status}
+                      value={settingsStages[status]}
+                      onChange={(e) =>
+                        setSettingsStages((s) => ({ ...s, [status]: e.target.value }))
+                      }
+                      placeholder={STATUS_LABELS[status]}
+                      className={SETTINGS_INPUT_CLASS}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-between">
+              <button
+                onClick={() => {
+                  setDeleteBoardTarget(settingsBoard);
+                  setSettingsBoard(null);
+                }}
+                className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:underline dark:text-red-400"
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSettingsBoard(null)}
+                  disabled={savingSettings}
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveBoardSettings}
+                  disabled={savingSettings || !settingsName.trim()}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {savingSettings ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteBoardTarget && (
         <div className="animate-overlay-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -388,7 +459,6 @@ export default function Sidebar({
           </div>
         </div>
       )}
-      </aside>
     </>
   );
 }

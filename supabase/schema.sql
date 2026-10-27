@@ -4,9 +4,15 @@
 create table if not exists public.boards (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  stage_labels jsonb not null default '{}'::jsonb,
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   created_at timestamptz not null default now()
 );
+
+-- Safe to re-run: adds the column if this table already existed before it was introduced.
+-- Per-board overrides for the Kanban column headers (New/InProgress/Blocked/Done), e.g.
+-- {"New": "Backlog", "InProgress": "Doing"}. Missing keys fall back to the default label.
+alter table public.boards add column if not exists stage_labels jsonb not null default '{}'::jsonb;
 
 create index if not exists boards_user_id_idx on public.boards (user_id);
 

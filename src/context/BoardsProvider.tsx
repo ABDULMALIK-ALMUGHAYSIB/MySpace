@@ -8,6 +8,7 @@ import {
 } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
+import type { StatusValue } from "@/lib/task-meta";
 import type { Board } from "@/lib/types";
 
 type BoardsContextValue = {
@@ -16,6 +17,7 @@ type BoardsContextValue = {
   createBoard: (name: string) => Promise<Board | null>;
   renameBoard: (id: string, name: string) => Promise<void>;
   deleteBoard: (id: string) => Promise<void>;
+  renameStage: (id: string, status: StatusValue, label: string) => Promise<void>;
 };
 
 const BoardsContext = createContext<BoardsContextValue | undefined>(undefined);
@@ -88,8 +90,25 @@ export function BoardsProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function renameStage(id: string, status: StatusValue, label: string) {
+    const board = boards.find((b) => b.id === id);
+    if (!board) return;
+    const stage_labels = { ...board.stage_labels, [status]: label };
+    const { data, error } = await supabase
+      .from("boards")
+      .update({ stage_labels })
+      .eq("id", id)
+      .select()
+      .single();
+    if (!error && data) {
+      setBoards((prev) => prev.map((b) => (b.id === id ? data : b)));
+    }
+  }
+
   return (
-    <BoardsContext.Provider value={{ boards, loading, createBoard, renameBoard, deleteBoard }}>
+    <BoardsContext.Provider
+      value={{ boards, loading, createBoard, renameBoard, deleteBoard, renameStage }}
+    >
       {children}
     </BoardsContext.Provider>
   );
