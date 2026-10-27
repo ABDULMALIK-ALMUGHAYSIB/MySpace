@@ -5,14 +5,17 @@ create table if not exists public.boards (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   stage_labels jsonb not null default '{}'::jsonb,
+  stage_order jsonb not null default '["New","InProgress","Blocked","Done"]'::jsonb,
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   created_at timestamptz not null default now()
 );
 
--- Safe to re-run: adds the column if this table already existed before it was introduced.
--- Per-board overrides for the Kanban column headers (New/InProgress/Blocked/Done), e.g.
--- {"New": "Backlog", "InProgress": "Doing"}. Missing keys fall back to the default label.
+-- Safe to re-run: adds the columns if this table already existed before they were introduced.
+-- Per-board overrides for the Kanban column headers, e.g. {"New": "Backlog"} — missing keys
+-- fall back to the default label. stage_order is the ordered list of stage keys for the
+-- board (the default 4, plus any custom ones appended via "Add stage" in board settings).
 alter table public.boards add column if not exists stage_labels jsonb not null default '{}'::jsonb;
+alter table public.boards add column if not exists stage_order jsonb not null default '["New","InProgress","Blocked","Done"]'::jsonb;
 
 create index if not exists boards_user_id_idx on public.boards (user_id);
 
@@ -46,7 +49,9 @@ create table if not exists public.tasks (
   notes_type text not null default 'note' check (notes_type in ('note', 'steps')),
   steps jsonb not null default '[]'::jsonb,
   priority text not null default 'Medium' check (priority in ('Low', 'Medium', 'High')),
-  status text not null default 'New' check (status in ('New', 'InProgress', 'Blocked', 'Done')),
+  -- Not constrained to a fixed enum: a board's stage_order/stage_labels define which
+  -- status keys are valid for its own tasks, since boards can add custom stages.
+  status text not null default 'New',
   due_date date,
   requester_name text,
   board_id uuid references public.boards (id) on delete cascade,
@@ -75,6 +80,9 @@ begin
 end $$;
 
 alter table public.tasks alter column board_id set not null;
+
+-- Safe to re-run: drops the old fixed-enum check if this table predates custom stages.
+alter table public.tasks drop constraint if exists tasks_status_check;
 
 -- Backfill: give any task missing a manual sort position a stable one, ordered by
 -- creation time within its own status column, so drag-to-reorder has something to work from.

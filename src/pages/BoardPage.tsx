@@ -33,12 +33,14 @@ import {
   isOverdue,
 } from "@/lib/task-meta";
 
-const COLUMN_STYLES: Record<StatusValue, string> = {
+// Fixed colors for the default stages; any custom stage a board adds falls back to slate.
+const COLUMN_STYLES: Record<string, string> = {
   New: "border-t-slate-400",
   InProgress: "border-t-blue-500",
   Blocked: "border-t-red-500",
   Done: "border-t-emerald-500",
 };
+const DEFAULT_COLUMN_STYLE = "border-t-slate-400";
 
 const INPUT_CLASS =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white";
@@ -68,6 +70,7 @@ export default function BoardPage() {
   const navigate = useNavigate();
 
   const board = boards.find((b) => b.id === boardId) ?? null;
+  const stages = board?.stage_order?.length ? board.stage_order : STATUSES;
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -379,16 +382,19 @@ export default function BoardPage() {
     return result;
   }, [tasks, filterRequester, filterPriority, sortByDue]);
 
-  const columns = STATUSES.map((status) => {
+  const columns = stages.map((status) => {
     const colTasks = filtered.filter((t) => t.status === status);
     if (!sortByDue) colTasks.sort((a, b) => a.position - b.position);
     return { status, tasks: colTasks };
   });
+  // Up to 4 stages fit the row exactly like before (fluid, no scrollbar). Past that,
+  // columns get a fixed width and the row scrolls horizontally instead of wrapping.
+  const manyColumns = columns.length > 4;
 
   const draggingTask = tasks.find((t) => t.id === draggingId) ?? null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex h-full flex-col gap-6">
       <div>
         {editingBoardName ? (
           <div className="flex items-center gap-2">
@@ -441,7 +447,7 @@ export default function BoardPage() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-5">
+      <div className="flex min-h-0 flex-1 flex-col gap-5">
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={openNew}
@@ -506,9 +512,20 @@ export default function BoardPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div
+            className={
+              manyColumns
+                ? "flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2"
+                : "grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
+            }
+          >
             {columns.map((col) => (
-              <div key={col.status} className="flex flex-col gap-3">
+              <div
+                key={col.status}
+                className={
+                  manyColumns ? "flex h-full w-72 shrink-0 flex-col gap-3" : "flex flex-col gap-3"
+                }
+              >
                 <div className="flex items-center justify-between px-1">
                   <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                     {stageLabel(col.status)}
@@ -528,12 +545,14 @@ export default function BoardPage() {
                   }}
                   onDragLeave={() => setDragOverStatus((s) => (s === col.status ? null : s))}
                   onDrop={(e) => handleColumnDrop(col.status, e)}
-                  className={`flex flex-col gap-3 rounded-2xl border-t-4 bg-slate-100/60 p-3 transition-colors dark:bg-slate-800/60 ${COLUMN_STYLES[col.status]} ${
+                  className={`flex flex-col gap-3 rounded-2xl border-t-4 bg-slate-100/60 p-3 transition-colors dark:bg-slate-800/60 ${COLUMN_STYLES[col.status] ?? DEFAULT_COLUMN_STYLE} ${
+                    manyColumns ? "min-h-0 flex-1 overflow-y-auto" : ""
+                  } ${
                     dragOverStatus === col.status
                       ? "bg-blue-50 ring-2 ring-blue-300 dark:bg-blue-500/10 dark:ring-blue-500/40"
                       : ""
                   }`}
-                  style={{ minHeight: 120 }}
+                  style={manyColumns ? undefined : { minHeight: 120 }}
                 >
                   {col.tasks.length === 0 && (
                     <div className="flex flex-col items-center gap-1.5 py-6 text-center">
@@ -735,7 +754,7 @@ export default function BoardPage() {
               {moveTarget.title}
             </p>
             <div className="flex flex-col gap-2">
-              {STATUSES.map((status) => {
+              {stages.map((status) => {
                 const isCurrent = status === moveTarget.status;
                 return (
                   <button
@@ -1004,7 +1023,7 @@ export default function BoardPage() {
                     onChange={(e) => setForm({ ...form, status: e.target.value as StatusValue })}
                     className={INPUT_CLASS}
                   >
-                    {STATUSES.map((s) => (
+                    {stages.map((s) => (
                       <option key={s} value={s}>
                         {stageLabel(s)}
                       </option>

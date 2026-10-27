@@ -15,7 +15,7 @@ import {
   Check,
   X,
 } from "lucide-react";
-import { STATUSES, STATUS_LABELS, type StatusValue, initials, avatarColor } from "@/lib/task-meta";
+import { STATUSES, STATUS_LABELS, initials, avatarColor } from "@/lib/task-meta";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/lib/theme";
 import { useBoards } from "@/context/BoardsProvider";
@@ -41,16 +41,16 @@ export default function Sidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const { isDark, toggle } = useTheme();
-  const { boards, createBoard, renameBoard, deleteBoard, renameStage } = useBoards();
+  const { boards, createBoard, renameBoard, deleteBoard, updateStages } = useBoards();
 
   const [addingBoard, setAddingBoard] = useState(false);
   const [newBoardName, setNewBoardName] = useState("");
   const [deleteBoardTarget, setDeleteBoardTarget] = useState<Board | null>(null);
   const [settingsBoard, setSettingsBoard] = useState<Board | null>(null);
   const [settingsName, setSettingsName] = useState("");
-  const [settingsStages, setSettingsStages] = useState<Record<StatusValue, string>>(
-    STATUS_LABELS
-  );
+  const [stageDrafts, setStageDrafts] = useState<
+    { key: string; label: string; isNew?: boolean }[]
+  >([]);
   const [savingSettings, setSavingSettings] = useState(false);
 
   const lastBoardId = localStorage.getItem(LAST_BOARD_KEY);
@@ -74,9 +74,20 @@ export default function Sidebar({
   }
 
   function openBoardSettings(board: Board) {
+    const order = board.stage_order?.length ? board.stage_order : STATUSES;
     setSettingsName(board.name);
-    setSettingsStages({ ...STATUS_LABELS, ...board.stage_labels });
+    setStageDrafts(
+      order.map((key) => ({ key, label: board.stage_labels?.[key] || STATUS_LABELS[key] || key }))
+    );
     setSettingsBoard(board);
+  }
+
+  function addStageDraft() {
+    setStageDrafts((prev) => [...prev, { key: crypto.randomUUID(), label: "", isNew: true }]);
+  }
+
+  function updateStageDraft(index: number, label: string) {
+    setStageDrafts((prev) => prev.map((d, i) => (i === index ? { ...d, label } : d)));
   }
 
   async function saveBoardSettings() {
@@ -87,13 +98,26 @@ export default function Sidebar({
     if (name && name !== settingsBoard.name) {
       tasks.push(renameBoard(settingsBoard.id, name));
     }
-    for (const status of STATUSES) {
-      const label = settingsStages[status].trim();
-      const current = settingsBoard.stage_labels?.[status] || STATUS_LABELS[status];
-      if (label && label !== current) {
-        tasks.push(renameStage(settingsBoard.id, status, label));
+
+    const nextLabels = { ...settingsBoard.stage_labels };
+    const nextOrder: string[] = [];
+    for (const draft of stageDrafts) {
+      const label = draft.label.trim();
+      if (draft.isNew) {
+        if (!label) continue; // discard a stage that was added but left unnamed
+        nextLabels[draft.key] = label;
+      } else if (label) {
+        nextLabels[draft.key] = label;
       }
+      nextOrder.push(draft.key);
     }
+    const existingOrder = settingsBoard.stage_order?.length ? settingsBoard.stage_order : STATUSES;
+    const orderChanged = JSON.stringify(nextOrder) !== JSON.stringify(existingOrder);
+    const labelsChanged = JSON.stringify(nextLabels) !== JSON.stringify(settingsBoard.stage_labels);
+    if (orderChanged || labelsChanged) {
+      tasks.push(updateStages(settingsBoard.id, nextOrder, nextLabels));
+    }
+
     await Promise.all(tasks);
     setSavingSettings(false);
     setSettingsBoard(null);
@@ -359,17 +383,24 @@ export default function Sidebar({
                   Stage names
                 </label>
                 <div className="flex flex-col gap-2">
-                  {STATUSES.map((status) => (
+                  {stageDrafts.map((draft, i) => (
                     <input
-                      key={status}
-                      value={settingsStages[status]}
-                      onChange={(e) =>
-                        setSettingsStages((s) => ({ ...s, [status]: e.target.value }))
-                      }
-                      placeholder={STATUS_LABELS[status]}
+                      key={draft.key}
+                      autoFocus={draft.isNew}
+                      value={draft.label}
+                      onChange={(e) => updateStageDraft(i, e.target.value)}
+                      placeholder={draft.isNew ? "New stage" : STATUS_LABELS[draft.key]}
                       className={SETTINGS_INPUT_CLASS}
                     />
                   ))}
+                  <button
+                    type="button"
+                    onClick={addStageDraft}
+                    className="flex items-center gap-1.5 self-start rounded-lg px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
+                  >
+                    <Plus size={14} />
+                    Add stage
+                  </button>
                 </div>
               </div>
             </div>

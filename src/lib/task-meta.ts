@@ -1,7 +1,10 @@
-export const STATUSES = ["New", "InProgress", "Blocked", "Done"] as const;
-export type StatusValue = (typeof STATUSES)[number];
+// The default stages every new board starts with. Boards can rename these and append
+// custom ones (see Board.stage_order/stage_labels), so a task's status is no longer a
+// fixed enum — just a string key that must appear in its board's stage_order.
+export const STATUSES: string[] = ["New", "InProgress", "Blocked", "Done"];
+export type StatusValue = string;
 
-export const STATUS_LABELS: Record<StatusValue, string> = {
+export const STATUS_LABELS: Record<string, string> = {
   New: "New",
   InProgress: "In Progress",
   Blocked: "Blocked",
