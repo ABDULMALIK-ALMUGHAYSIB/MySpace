@@ -7,6 +7,7 @@ export type Board = {
   name: string;
   stage_labels: Partial<Record<StatusValue, string>>;
   stage_order: StatusValue[];
+  stage_colors: Partial<Record<StatusValue, string>>;
   user_id: string;
   created_at: string;
 };

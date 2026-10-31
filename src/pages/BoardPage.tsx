@@ -8,6 +8,7 @@ import {
   Inbox,
   Pencil,
   Plus,
+  Search,
   Trash2,
   X,
 } from "lucide-react";
@@ -21,26 +22,20 @@ import {
   PRIORITIES,
   PRIORITY_STYLES,
   type PriorityValue,
+  STAGE_COLOR_BORDER_CLASS,
+  type StageColor,
   STATUSES,
   STATUS_LABELS,
   type StatusValue,
   avatarColor,
   cardTint,
   daysRemaining,
+  defaultStageColor,
   forceLight,
   formatDate,
   initials,
   isOverdue,
 } from "@/lib/task-meta";
-
-// Fixed colors for the default stages; any custom stage a board adds falls back to slate.
-const COLUMN_STYLES: Record<string, string> = {
-  New: "border-t-slate-400",
-  InProgress: "border-t-blue-500",
-  Blocked: "border-t-red-500",
-  Done: "border-t-emerald-500",
-};
-const DEFAULT_COLUMN_STYLE = "border-t-slate-400";
 
 const INPUT_CLASS =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white";
@@ -83,6 +78,7 @@ export default function BoardPage() {
   const [boardNameDraft, setBoardNameDraft] = useState("");
   const [deleteBoardConfirm, setDeleteBoardConfirm] = useState(false);
 
+  const [searchQuery, setSearchQuery] = useState("");
   const [filterRequester, setFilterRequester] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
   const [sortByDue, setSortByDue] = useState(false);
@@ -176,6 +172,11 @@ export default function BoardPage() {
 
   function stageLabel(status: StatusValue) {
     return board?.stage_labels?.[status] || STATUS_LABELS[status];
+  }
+
+  function stageColorClass(status: StatusValue) {
+    const color = (board?.stage_colors?.[status] as StageColor) || defaultStageColor(status);
+    return STAGE_COLOR_BORDER_CLASS[color];
   }
 
   const requesterOptions = useMemo(
@@ -370,6 +371,15 @@ export default function BoardPage() {
 
   const filtered = useMemo(() => {
     let result = tasks;
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          (t.description?.toLowerCase().includes(q) ?? false) ||
+          t.steps.some((s) => s.toLowerCase().includes(q))
+      );
+    }
     if (filterRequester) result = result.filter((t) => t.requester_name === filterRequester);
     if (filterPriority) result = result.filter((t) => t.priority === filterPriority);
     if (sortByDue) {
@@ -380,15 +390,16 @@ export default function BoardPage() {
       });
     }
     return result;
-  }, [tasks, filterRequester, filterPriority, sortByDue]);
+  }, [tasks, searchQuery, filterRequester, filterPriority, sortByDue]);
 
   const columns = stages.map((status) => {
     const colTasks = filtered.filter((t) => t.status === status);
     if (!sortByDue) colTasks.sort((a, b) => a.position - b.position);
     return { status, tasks: colTasks };
   });
-  // Up to 4 stages fit the row exactly like before (fluid, no scrollbar). Past that,
+  // Up to 4 stages fit the row width-wise (fluid, no horizontal scroll). Past that,
   // columns get a fixed width and the row scrolls horizontally instead of wrapping.
+  // Either way, each column scrolls vertically within itself once it has many tasks.
   const manyColumns = columns.length > 4;
 
   const draggingTask = tasks.find((t) => t.id === draggingId) ?? null;
@@ -449,6 +460,27 @@ export default function BoardPage() {
 
       <div className="flex min-h-0 flex-1 flex-col gap-5">
         <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <Search
+              size={15}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search tasks..."
+              className="w-48 rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-8 text-sm text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
           <button
             onClick={openNew}
             className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
@@ -515,15 +547,15 @@ export default function BoardPage() {
           <div
             className={
               manyColumns
-                ? "flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2"
-                : "grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
+                ? "thin-scrollbar flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2"
+                : "grid min-h-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
             }
           >
             {columns.map((col) => (
               <div
                 key={col.status}
                 className={
-                  manyColumns ? "flex h-full w-72 shrink-0 flex-col gap-3" : "flex flex-col gap-3"
+                  manyColumns ? "flex h-full w-72 shrink-0 flex-col gap-3" : "flex h-full flex-col gap-3"
                 }
               >
                 <div className="flex items-center justify-between px-1">
@@ -545,14 +577,11 @@ export default function BoardPage() {
                   }}
                   onDragLeave={() => setDragOverStatus((s) => (s === col.status ? null : s))}
                   onDrop={(e) => handleColumnDrop(col.status, e)}
-                  className={`flex flex-col gap-3 rounded-2xl border-t-4 bg-slate-100/60 p-3 transition-colors dark:bg-slate-800/60 ${COLUMN_STYLES[col.status] ?? DEFAULT_COLUMN_STYLE} ${
-                    manyColumns ? "min-h-0 flex-1 overflow-y-auto" : ""
-                  } ${
+                  className={`thin-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-2xl border-t-4 bg-slate-100/60 p-3 transition-colors dark:bg-slate-800/60 ${stageColorClass(col.status)} ${
                     dragOverStatus === col.status
                       ? "bg-blue-50 ring-2 ring-blue-300 dark:bg-blue-500/10 dark:ring-blue-500/40"
                       : ""
                   }`}
-                  style={manyColumns ? undefined : { minHeight: 120 }}
                 >
                   {col.tasks.length === 0 && (
                     <div className="flex flex-col items-center gap-1.5 py-6 text-center">

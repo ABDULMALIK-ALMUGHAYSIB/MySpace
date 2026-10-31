@@ -20,7 +20,8 @@ type BoardsContextValue = {
   updateStages: (
     id: string,
     stage_order: StatusValue[],
-    stage_labels: Partial<Record<StatusValue, string>>
+    stage_labels: Partial<Record<StatusValue, string>>,
+    stage_colors: Partial<Record<StatusValue, string>>
   ) => Promise<void>;
 };
 
@@ -97,11 +98,12 @@ export function BoardsProvider({ children }: { children: ReactNode }) {
   async function updateStages(
     id: string,
     stage_order: StatusValue[],
-    stage_labels: Partial<Record<StatusValue, string>>
+    stage_labels: Partial<Record<StatusValue, string>>,
+    stage_colors: Partial<Record<StatusValue, string>>
   ) {
     const { data, error } = await supabase
       .from("boards")
-      .update({ stage_order, stage_labels })
+      .update({ stage_order, stage_labels, stage_colors })
       .eq("id", id)
       .select()
       .single();

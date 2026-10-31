@@ -11,6 +11,64 @@ export const STATUS_LABELS: Record<string, string> = {
   Done: "Done",
 };
 
+// Palette for stage (Kanban column) header colors. New/InProgress/Blocked/Done keep their
+// traditional colors by default; any custom stage a board adds gets a deterministic color
+// from this same palette (see defaultStageColor), and either can be changed in board settings.
+export const STAGE_COLORS = [
+  "slate",
+  "blue",
+  "red",
+  "emerald",
+  "purple",
+  "amber",
+  "pink",
+  "teal",
+  "indigo",
+  "cyan",
+] as const;
+export type StageColor = (typeof STAGE_COLORS)[number];
+
+const DEFAULT_STAGE_COLORS: Partial<Record<string, StageColor>> = {
+  New: "slate",
+  InProgress: "blue",
+  Blocked: "red",
+  Done: "emerald",
+};
+
+export const STAGE_COLOR_BORDER_CLASS: Record<StageColor, string> = {
+  slate: "border-t-slate-400",
+  blue: "border-t-blue-500",
+  red: "border-t-red-500",
+  emerald: "border-t-emerald-500",
+  purple: "border-t-purple-500",
+  amber: "border-t-amber-500",
+  pink: "border-t-pink-500",
+  teal: "border-t-teal-500",
+  indigo: "border-t-indigo-500",
+  cyan: "border-t-cyan-500",
+};
+
+export const STAGE_COLOR_SWATCH_CLASS: Record<StageColor, string> = {
+  slate: "bg-slate-400",
+  blue: "bg-blue-500",
+  red: "bg-red-500",
+  emerald: "bg-emerald-500",
+  purple: "bg-purple-500",
+  amber: "bg-amber-500",
+  pink: "bg-pink-500",
+  teal: "bg-teal-500",
+  indigo: "bg-indigo-500",
+  cyan: "bg-cyan-500",
+};
+
+export function defaultStageColor(statusKey: string): StageColor {
+  const known = DEFAULT_STAGE_COLORS[statusKey];
+  if (known) return known;
+  let hash = 0;
+  for (let i = 0; i < statusKey.length; i++) hash = statusKey.charCodeAt(i) + ((hash << 5) - hash);
+  return STAGE_COLORS[Math.abs(hash) % STAGE_COLORS.length];
+}
+
 export const PRIORITIES = ["High", "Medium", "Low"] as const;
 export type PriorityValue = (typeof PRIORITIES)[number];
 

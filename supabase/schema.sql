@@ -6,6 +6,7 @@ create table if not exists public.boards (
   name text not null,
   stage_labels jsonb not null default '{}'::jsonb,
   stage_order jsonb not null default '["New","InProgress","Blocked","Done"]'::jsonb,
+  stage_colors jsonb not null default '{}'::jsonb,
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   created_at timestamptz not null default now()
 );
@@ -14,8 +15,11 @@ create table if not exists public.boards (
 -- Per-board overrides for the Kanban column headers, e.g. {"New": "Backlog"} — missing keys
 -- fall back to the default label. stage_order is the ordered list of stage keys for the
 -- board (the default 4, plus any custom ones appended via "Add stage" in board settings).
+-- stage_colors maps a stage key to a palette color name (see STAGE_COLORS in task-meta.ts);
+-- a stage without an explicit entry gets a deterministic default based on its key.
 alter table public.boards add column if not exists stage_labels jsonb not null default '{}'::jsonb;
 alter table public.boards add column if not exists stage_order jsonb not null default '["New","InProgress","Blocked","Done"]'::jsonb;
+alter table public.boards add column if not exists stage_colors jsonb not null default '{}'::jsonb;
 
 create index if not exists boards_user_id_idx on public.boards (user_id);
 

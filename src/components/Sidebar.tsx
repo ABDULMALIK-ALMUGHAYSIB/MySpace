@@ -15,7 +15,16 @@ import {
   Check,
   X,
 } from "lucide-react";
-import { STATUSES, STATUS_LABELS, initials, avatarColor } from "@/lib/task-meta";
+import {
+  STAGE_COLORS,
+  STAGE_COLOR_SWATCH_CLASS,
+  type StageColor,
+  STATUSES,
+  STATUS_LABELS,
+  avatarColor,
+  defaultStageColor,
+  initials,
+} from "@/lib/task-meta";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/lib/theme";
 import { useBoards } from "@/context/BoardsProvider";
@@ -49,7 +58,7 @@ export default function Sidebar({
   const [settingsBoard, setSettingsBoard] = useState<Board | null>(null);
   const [settingsName, setSettingsName] = useState("");
   const [stageDrafts, setStageDrafts] = useState<
-    { key: string; label: string; isNew?: boolean }[]
+    { key: string; label: string; color: StageColor; isNew?: boolean }[]
   >([]);
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -77,17 +86,29 @@ export default function Sidebar({
     const order = board.stage_order?.length ? board.stage_order : STATUSES;
     setSettingsName(board.name);
     setStageDrafts(
-      order.map((key) => ({ key, label: board.stage_labels?.[key] || STATUS_LABELS[key] || key }))
+      order.map((key) => ({
+        key,
+        label: board.stage_labels?.[key] || STATUS_LABELS[key] || key,
+        color: (board.stage_colors?.[key] as StageColor) || defaultStageColor(key),
+      }))
     );
     setSettingsBoard(board);
   }
 
   function addStageDraft() {
-    setStageDrafts((prev) => [...prev, { key: crypto.randomUUID(), label: "", isNew: true }]);
+    const key = crypto.randomUUID();
+    setStageDrafts((prev) => [
+      ...prev,
+      { key, label: "", color: defaultStageColor(key), isNew: true },
+    ]);
   }
 
   function updateStageDraft(index: number, label: string) {
     setStageDrafts((prev) => prev.map((d, i) => (i === index ? { ...d, label } : d)));
+  }
+
+  function updateStageDraftColor(index: number, color: StageColor) {
+    setStageDrafts((prev) => prev.map((d, i) => (i === index ? { ...d, color } : d)));
   }
 
   async function saveBoardSettings() {
@@ -100,6 +121,7 @@ export default function Sidebar({
     }
 
     const nextLabels = { ...settingsBoard.stage_labels };
+    const nextColors = { ...settingsBoard.stage_colors };
     const nextOrder: string[] = [];
     for (const draft of stageDrafts) {
       const label = draft.label.trim();
@@ -109,13 +131,15 @@ export default function Sidebar({
       } else if (label) {
         nextLabels[draft.key] = label;
       }
+      nextColors[draft.key] = draft.color;
       nextOrder.push(draft.key);
     }
     const existingOrder = settingsBoard.stage_order?.length ? settingsBoard.stage_order : STATUSES;
     const orderChanged = JSON.stringify(nextOrder) !== JSON.stringify(existingOrder);
     const labelsChanged = JSON.stringify(nextLabels) !== JSON.stringify(settingsBoard.stage_labels);
-    if (orderChanged || labelsChanged) {
-      tasks.push(updateStages(settingsBoard.id, nextOrder, nextLabels));
+    const colorsChanged = JSON.stringify(nextColors) !== JSON.stringify(settingsBoard.stage_colors);
+    if (orderChanged || labelsChanged || colorsChanged) {
+      tasks.push(updateStages(settingsBoard.id, nextOrder, nextLabels, nextColors));
     }
 
     await Promise.all(tasks);
@@ -382,16 +406,32 @@ export default function Sidebar({
                 <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
                   Stage names
                 </label>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-3">
                   {stageDrafts.map((draft, i) => (
-                    <input
-                      key={draft.key}
-                      autoFocus={draft.isNew}
-                      value={draft.label}
-                      onChange={(e) => updateStageDraft(i, e.target.value)}
-                      placeholder={draft.isNew ? "New stage" : STATUS_LABELS[draft.key]}
-                      className={SETTINGS_INPUT_CLASS}
-                    />
+                    <div key={draft.key} className="flex flex-col gap-1.5">
+                      <input
+                        autoFocus={draft.isNew}
+                        value={draft.label}
+                        onChange={(e) => updateStageDraft(i, e.target.value)}
+                        placeholder={draft.isNew ? "New stage" : STATUS_LABELS[draft.key]}
+                        className={SETTINGS_INPUT_CLASS}
+                      />
+                      <div className="flex flex-wrap gap-1.5 px-0.5">
+                        {STAGE_COLORS.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => updateStageDraftColor(i, color)}
+                            title={color}
+                            className={`h-5 w-5 shrink-0 rounded-full ${STAGE_COLOR_SWATCH_CLASS[color]} ${
+                              draft.color === color
+                                ? "ring-2 ring-slate-900 ring-offset-2 ring-offset-white dark:ring-white dark:ring-offset-slate-800"
+                                : ""
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   ))}
                   <button
                     type="button"
