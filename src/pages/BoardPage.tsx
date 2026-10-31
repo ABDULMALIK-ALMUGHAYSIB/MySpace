@@ -528,9 +528,9 @@ export default function BoardPage() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="flex flex-col gap-4 md:flex-row">
             {STATUSES.map((status) => (
-              <div key={status} className="flex flex-col gap-3">
+              <div key={status} className="flex flex-col gap-3 md:flex-1">
                 <div className="h-4 w-20 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
                 <div className="flex flex-col gap-3 rounded-2xl bg-slate-100/60 p-3 dark:bg-slate-800/60">
                   {Array.from({ length: 2 }).map((_, i) => (
@@ -544,18 +544,26 @@ export default function BoardPage() {
             ))}
           </div>
         ) : (
+          // Below md, columns stack and the page scrolls normally — a fixed-height,
+          // internally-scrolling board doesn't make sense on a narrow phone screen.
+          // At md+, this row (and each column inside it) is height-bounded by the flex
+          // chain above, via plain flexbox rather than CSS grid: grid rows auto-size to
+          // their tallest column's content and ignore that bound entirely, which is what
+          // broke the vertical per-column scroll on boards with 4 or fewer stages.
           <div
             className={
               manyColumns
-                ? "thin-scrollbar flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2"
-                : "grid min-h-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
+                ? "thin-scrollbar flex flex-col gap-4 md:min-h-0 md:flex-1 md:flex-row md:overflow-x-auto md:pb-2"
+                : "flex flex-col gap-4 md:min-h-0 md:flex-1 md:flex-row"
             }
           >
             {columns.map((col) => (
               <div
                 key={col.status}
                 className={
-                  manyColumns ? "flex h-full w-72 shrink-0 flex-col gap-3" : "flex h-full flex-col gap-3"
+                  manyColumns
+                    ? "flex flex-col gap-3 md:h-full md:w-72 md:shrink-0"
+                    : "flex flex-col gap-3 md:h-full md:min-w-0 md:flex-1"
                 }
               >
                 <div className="flex items-center justify-between px-1">
@@ -577,7 +585,7 @@ export default function BoardPage() {
                   }}
                   onDragLeave={() => setDragOverStatus((s) => (s === col.status ? null : s))}
                   onDrop={(e) => handleColumnDrop(col.status, e)}
-                  className={`thin-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-2xl border-t-4 bg-slate-100/60 p-3 transition-colors dark:bg-slate-800/60 ${stageColorClass(col.status)} ${
+                  className={`thin-scrollbar flex flex-col gap-3 rounded-2xl border-t-4 bg-slate-100/60 p-3 transition-colors dark:bg-slate-800/60 md:min-h-0 md:flex-1 md:overflow-y-auto ${stageColorClass(col.status)} ${
                     dragOverStatus === col.status
                       ? "bg-blue-50 ring-2 ring-blue-300 dark:bg-blue-500/10 dark:ring-blue-500/40"
                       : ""
